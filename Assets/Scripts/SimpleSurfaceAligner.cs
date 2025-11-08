@@ -27,6 +27,12 @@ public class SimpleSurfaceAligner : MonoBehaviour
     [SerializeField] private float distanceScaleMultiplier = 1f; // Multiplier for distance scaling strength
     [SerializeField] private float minDistanceScale = 0f; // Minimum scale value (floor)
     
+    [Header("Hover")]
+    [SerializeField] private bool enableHover = false; // Toggle hover mode
+    [SerializeField] private float hoverHeight = 2f; // Target height to maintain
+    [SerializeField] private float hoverForce = 50f; // Spring force to maintain height
+    [SerializeField] private float hoverDamping = 5f; // Dampening for hover oscillation
+    
     private Rigidbody _rb;
     private Vector2 _moveInput; // Store input for FixedUpdate
     
@@ -127,8 +133,15 @@ public class SimpleSurfaceAligner : MonoBehaviour
             Quaternion newRotation = Quaternion.Slerp(transform.rotation, targetRotation, alignmentSpeed * Time.fixedDeltaTime);
             _rb.MoveRotation(newRotation);
             
-            // Apply suction force toward the surface
-            ApplySuctionForce(hit, surfaceNormal);
+            // Apply hover or suction force
+            if (enableHover)
+            {
+                ApplyHoverForce(hit, surfaceNormal);
+            }
+            else
+            {
+                ApplySuctionForce(hit, surfaceNormal);
+            }
             
             // Debug visualization
             if (showDebugRays)
@@ -201,6 +214,31 @@ public class SimpleSurfaceAligner : MonoBehaviour
         if (showDebugRays && distanceMultiplier > 0.01f)
         {
             Debug.DrawRay(transform.position, towardSurface * distanceMultiplier * 2f, Color.magenta);
+        }
+    }
+    
+    /// <summary>
+    /// Applies hover force to maintain a constant height above the surface (like a spring)
+    /// </summary>
+    private void ApplyHoverForce(RaycastHit hit, Vector3 surfaceNormal)
+    {
+        // Calculate how far we are from the desired hover height
+        float heightDifference = hoverHeight - hit.distance;
+        
+        // Spring force proportional to height difference
+        float force = heightDifference * hoverForce;
+        
+        // Dampen velocity along the surface normal (prevents oscillation)
+        float normalVel = Vector3.Dot(_rb.linearVelocity, surfaceNormal);
+        force -= normalVel * hoverDamping;
+        
+        // Apply force along the surface normal
+        _rb.AddForce(surfaceNormal * force, ForceMode.Acceleration);
+        
+        // Debug: Show hover force
+        if (showDebugRays)
+        {
+            Debug.DrawRay(transform.position, surfaceNormal * (force / hoverForce), Color.cyan);
         }
     }
     
