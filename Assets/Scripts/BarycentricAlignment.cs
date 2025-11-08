@@ -2,207 +2,212 @@ using UnityEngine;
 
 public class BarycentricAlignment : MonoBehaviour
 {
-    [Header("Alignment Settings")]
-    [SerializeField] private bool enableAlignment = true;
-    [SerializeField] private float alignmentSpeed = 5f;
-    [SerializeField] private float raycastDistance = 5f;
-    
-    [Header("Raycast Positions")]
-    [SerializeField] private float raycastWidth = 1f; // Distance from center to left/right
-    [SerializeField] private float raycastForwardOffset = 1f; // How far forward from center
+    [Header("Surface Detection")]
+    [SerializeField] private float detectionDistance = 5f;
     [SerializeField] private LayerMask surfaceLayer;
+    [SerializeField] private int rayCount = 5; // Number of rays to cast for better detection
+    
+    [Header("Alignment Settings")]
+    [SerializeField] private float alignmentSpeed = 5f;
+    [SerializeField] private float alignmentThreshold = 5f; // Distance to start aligning (should match or be close to detectionDistance)
+    [SerializeField] private bool enableAlignment = true;
+    
+    [Header("Smoothing")]
+    [SerializeField] private float smoothTime = 0.3f;
     
     [Header("Debug")]
     [SerializeField] private bool showDebugRays = true;
     [SerializeField] private bool showDebugInfo = false;
     
     private Rigidbody _rb;
-    private Transform _transform;
-    
-    // Raycast hit storage
-    private RaycastHit _leftHit;
-    private RaycastHit _rightHit;
-    private bool _leftHitValid;
-    private bool _rightHitValid;
-    
-    public bool IsAlignmentEnabled => enableAlignment;
+    private Vector3 _targetUp = Vector3.up;
+    private Vector3 _smoothedUp = Vector3.up;
+    private Vector3 _velocityRef = Vector3.zero;
+    private bool _isNearSurface = false;
+    public Vector3 CurrentUp => _smoothedUp;     // same as target up when settled
+public Vector3 CurrentNormal => _smoothedUp; // alias for clarity
+    public bool IsAlignmentEnabled => enableAlignment && _isNearSurface;
     
     void Awake()
     {
         _rb = GetComponent<Rigidbody>();
-        _transform = transform;
+        _smoothedUp = transform.up;
     }
     
     void FixedUpdate()
     {
-        if (!enableAlignment) return;
-        
-        PerformRaycasts();
-        
-        if (_leftHitValid && _rightHitValid)
+        if (!enableAlignment)
         {
-            AlignToSurface();
+            _isNearSurface = false;
+            return;
         }
+        
+        DetectAndAlignToSurface();
     }
     
-    private void PerformRaycasts()
+private void DetectAndAlignToSurface()
+{
+    Vector3 bestNormal = Vector3.up;
+    float   bestWallScore = -1f;          // higher = better wall
+    float   bestGroundDist = float.MaxValue;
+    Vector3 bestGroundNormal = Vector3.up;
+    bool    hitAnything = false;
+    float   bestDistance = float.MaxValue;
+
+    foreach (var direction in GetRayDirections())
     {
-        // Calculate raycast start positions in world space
-        Vector3 forward = _transform.forward;
-        Vector3 right = _transform.right;
-        Vector3 centerPos = _transform.position + forward * raycastForwardOffset;
-        
-        Vector3 leftStart = centerPos - right * raycastWidth;
-        Vector3 rightStart = centerPos + right * raycastWidth;
-        
-        // Use the vehicle's down direction for raycasting
-        Vector3 rayDirection = -_transform.up;
-        
-        // Perform raycasts
-        _leftHitValid = Physics.Raycast(leftStart, rayDirection, out _leftHit, raycastDistance, surfaceLayer);
-        _rightHitValid = Physics.Raycast(rightStart, rayDirection, out _rightHit, raycastDistance, surfaceLayer);
-        
-        // Debug visualization
-        if (showDebugRays)
+        if (Physics.Raycast(transform.position, direction, out var hit, detectionDistance, surfaceLayer))
         {
-            Color leftColor = _leftHitValid ? Color.green : Color.red;
-            Color rightColor = _rightHitValid ? Color.green : Color.red;
-            
-            Debug.DrawRay(leftStart, rayDirection * (_leftHitValid ? _leftHit.distance : raycastDistance), leftColor);
-            Debug.DrawRay(rightStart, rayDirection * (_rightHitValid ? _rightHit.distance : raycastDistance), rightColor);
-            
-            if (_leftHitValid)
+            hitAnything = true;
+
+            float upDot = Mathf.Abs(Vector3.Dot(hit.normal, Vector3.up)); // 0 = vertical wall, 1 = floor/ceiling
+
+            // WALL-ish: prefer vertical and near
+            if (upDot < 0.5f) // tweak threshold (0.4–0.7)
             {
-                Debug.DrawRay(_leftHit.point, _leftHit.normal * 0.5f, Color.cyan);
-            }
-            if (_rightHitValid)
-            {
-                Debug.DrawRay(_rightHit.point, _rightHit.normal * 0.5f, Color.cyan);
-            }
-        }
-    }
-    
-    private void AlignToSurface()
-    {
-        // Get surface normals using barycentric coordinates for precision
-        Vector3 leftNormal = GetBarycentricNormal(_leftHit);
-        Vector3 rightNormal = GetBarycentricNormal(_rightHit);
-        
-        // Average the normals to get the surface orientation
-        Vector3 averageNormal = (leftNormal + rightNormal).normalized;
-        
-        // Calculate the target "up" direction (perpendicular to surface)
-        Vector3 targetUp = averageNormal;
-        
-        // Calculate the target "forward" direction
-        // Project current forward onto the surface plane
-        Vector3 currentForward = _transform.forward;
-        Vector3 targetForward = Vector3.ProjectOnPlane(currentForward, targetUp).normalized;
-        
-        // If the projection is too small (nearly perpendicular), use velocity direction instead
-        if (targetForward.sqrMagnitude < 0.1f)
-        {
-            Vector3 velocityDir = _rb.linearVelocity.normalized;
-            targetForward = Vector3.ProjectOnPlane(velocityDir, targetUp).normalized;
-        }
-        
-        // Construct target rotation
-        Quaternion targetRotation = Quaternion.LookRotation(targetForward, targetUp);
-        
-        // Store current velocity (to maintain it after rotation)
-        Vector3 currentVelocity = _rb.linearVelocity;
-        float velocityMagnitude = currentVelocity.magnitude;
-        
-        // Smoothly rotate the rigidbody
-        Quaternion newRotation = Quaternion.Slerp(_rb.rotation, targetRotation, alignmentSpeed * Time.fixedDeltaTime);
-        _rb.MoveRotation(newRotation);
-        
-        // Maintain velocity magnitude but update direction to match new forward
-        // This is crucial for loops - velocity rotates with the vehicle
-        if (velocityMagnitude > 0.1f)
-        {
-            // Calculate how much we rotated
-            Quaternion rotationDelta = newRotation * Quaternion.Inverse(_rb.rotation);
-            
-            // Rotate the velocity vector by the same amount
-            Vector3 rotatedVelocity = rotationDelta * currentVelocity;
-            _rb.linearVelocity = rotatedVelocity;
-        }
-        
-        if (showDebugInfo)
-        {
-            Debug.Log($"Aligning to surface. Normal: {averageNormal}, Forward: {targetForward}");
-        }
-    }
-    
-    private Vector3 GetBarycentricNormal(RaycastHit hit)
-    {
-        // If we hit a mesh collider, use barycentric coordinates for precise normal
-        MeshCollider meshCollider = hit.collider as MeshCollider;
-        
-        if (meshCollider != null && meshCollider.sharedMesh != null)
-        {
-            Mesh mesh = meshCollider.sharedMesh;
-            Vector3 barycentricCoord = hit.barycentricCoordinate;
-            
-            // Get the triangle indices
-            int[] triangles = mesh.triangles;
-            int triangleIndex = hit.triangleIndex * 3;
-            
-            if (triangleIndex >= 0 && triangleIndex + 2 < triangles.Length)
-            {
-                int i0 = triangles[triangleIndex];
-                int i1 = triangles[triangleIndex + 1];
-                int i2 = triangles[triangleIndex + 2];
-                
-                // Get the normals at each vertex
-                Vector3[] normals = mesh.normals;
-                
-                if (i0 < normals.Length && i1 < normals.Length && i2 < normals.Length)
+                // score: more vertical + closer is better
+                float verticalBonus = 0.5f - upDot;
+                float proximity     = 1f - (hit.distance / detectionDistance);
+                float score = verticalBonus + proximity;
+
+                if (score > bestWallScore)
                 {
-                    Vector3 n0 = normals[i0];
-                    Vector3 n1 = normals[i1];
-                    Vector3 n2 = normals[i2];
-                    
-                    // Interpolate normal using barycentric coordinates
-                    Vector3 interpolatedNormal = n0 * barycentricCoord.x +
-                                                 n1 * barycentricCoord.y +
-                                                 n2 * barycentricCoord.z;
-                    
-                    // Transform to world space
-                    Vector3 worldNormal = hit.transform.TransformDirection(interpolatedNormal).normalized;
-                    
-                    return worldNormal;
+                    bestWallScore = score;
+                    bestNormal    = hit.normal;
+                    bestDistance  = hit.distance;
+                }
+            }
+            else
+            {
+                // GROUND-ish: track nearest ground as fallback
+                if (hit.distance < bestGroundDist)
+                {
+                    bestGroundDist   = hit.distance;
+                    bestGroundNormal = hit.normal;
                 }
             }
         }
+    }
+
+    if (bestWallScore < 0f) // no wall found → use ground
+    {
+        bestNormal   = bestGroundNormal;
+        bestDistance = bestGroundDist;
+    }
+
+    _isNearSurface = hitAnything && bestDistance <= alignmentThreshold;
+
+    _targetUp = _isNearSurface ? bestNormal : Vector3.up;
+
+    // smooth + normalize (important: SmoothDamp shrinks vectors)
+    _smoothedUp = Vector3.SmoothDamp(_smoothedUp, _targetUp, ref _velocityRef, smoothTime);
+    if (_smoothedUp.sqrMagnitude < 1e-6f) _smoothedUp = Vector3.up;
+    else _smoothedUp.Normalize();
+
+    AlignToDirection(_smoothedUp);
+}
+
+    
+    private Vector3[] GetRayDirections()
+    {
+        // Create an array of directions to check
+        // Down, forward-down, forward, and diagonal directions
+        Vector3[] directions = new Vector3[rayCount];
         
-        // Fallback to the standard hit normal
-        return hit.normal;
+        directions[0] = -transform.up; // Straight down
+        
+        if (rayCount > 1)
+        {
+            // Forward and angled down
+            directions[1] = (transform.forward - transform.up).normalized;
+        }
+        
+        if (rayCount > 2)
+        {
+            // Forward
+            directions[2] = transform.forward;
+        }
+        
+        if (rayCount > 3)
+        {
+            // Left-forward angled down
+            directions[3] = (transform.forward - transform.right - transform.up).normalized;
+        }
+        
+        if (rayCount > 4)
+        {
+            // Right-forward angled down
+            directions[4] = (transform.forward + transform.right - transform.up).normalized;
+        }
+        
+        // Add more rays if needed
+        for (int i = 5; i < rayCount; i++)
+        {
+            // Additional rays in a cone around forward direction
+            float angle = (i - 5) * (360f / (rayCount - 5));
+            Vector3 dir = Quaternion.AngleAxis(angle, transform.forward) * (transform.forward - transform.up);
+            directions[i] = dir.normalized;
+        }
+        
+        return directions;
     }
     
+    private void AlignToDirection(Vector3 targetUp)
+    {
+        // Project the current forward direction onto the plane defined by targetUp
+        // This keeps us moving forward along the surface
+        Vector3 projectedForward = Vector3.ProjectOnPlane(transform.forward, targetUp).normalized;
+        
+        if (projectedForward.sqrMagnitude < 0.01f)
+        {
+            // If forward is parallel to targetUp, use right vector instead
+            projectedForward = Vector3.ProjectOnPlane(transform.right, targetUp).normalized;
+        }
+        
+        // Create rotation where:
+        // - Forward stays tangent to the surface (projected forward)
+        // - Up points away from surface (surface normal)
+        Quaternion targetRotation = Quaternion.LookRotation(projectedForward, targetUp);
+        
+        // Smoothly rotate towards target
+        Quaternion newRotation = Quaternion.Slerp(transform.rotation, targetRotation, alignmentSpeed * Time.fixedDeltaTime);
+        
+        // Apply rotation to rigidbody
+        _rb.MoveRotation(newRotation);
+    }
+    
+    // Public method to manually enable/disable alignment
     public void SetAlignmentEnabled(bool enabled)
     {
         enableAlignment = enabled;
     }
     
+    // Get the current target up direction (useful for other scripts)
+    public Vector3 GetTargetUp()
+    {
+        return _targetUp;
+    }
+    
+    // Check if currently aligned to a surface
+    public bool IsAlignedToSurface()
+    {
+        return _isNearSurface;
+    }
+    
     void OnDrawGizmosSelected()
     {
-        if (!showDebugRays) return;
+        if (!Application.isPlaying) return;
         
-        // Draw the raycast positions
-        Vector3 forward = transform.forward;
-        Vector3 right = transform.right;
-        Vector3 centerPos = transform.position + forward * raycastForwardOffset;
+        // Draw the target up direction
+        Gizmos.color = Color.blue;
+        Gizmos.DrawRay(transform.position, _targetUp * 2f);
         
-        Vector3 leftPos = centerPos - right * raycastWidth;
-        Vector3 rightPos = centerPos + right * raycastWidth;
+        // Draw the smoothed up direction
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawRay(transform.position, _smoothedUp * 2.5f);
         
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawWireSphere(leftPos, 0.1f);
-        Gizmos.DrawWireSphere(rightPos, 0.1f);
-        
-        // Draw line between them
-        Gizmos.DrawLine(leftPos, rightPos);
+        // Draw detection sphere
+        Gizmos.color = _isNearSurface ? Color.green : Color.yellow;
+        Gizmos.DrawWireSphere(transform.position, alignmentThreshold);
     }
 }

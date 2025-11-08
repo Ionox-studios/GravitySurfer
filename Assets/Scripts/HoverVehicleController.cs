@@ -44,9 +44,11 @@ public class HoverVehicleController : MonoBehaviour
         UpdateRigidbodyConstraints();
     }
     
-    void Update()
+    void FixedUpdate()
     {
-        // Update constraints if barycentric alignment state changes
+        _currentSpeed = _rb.linearVelocity.magnitude;
+        
+        // Update constraints in FixedUpdate to sync with physics
         UpdateRigidbodyConstraints();
     }
     
@@ -56,11 +58,13 @@ public class HoverVehicleController : MonoBehaviour
         {
             // Allow full rotation when using barycentric alignment
             _rb.constraints = RigidbodyConstraints.None;
+            UnityEngine.Debug.Log("Barycentric alignment enabled; unlocking rigidbody rotation.");
         }
         else
         {
-            // Lock X and Z rotation for standard hover mode
-            _rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+            // Lock X and Z rotation for standard hover mode, but allow Y rotation for turning
+            //_rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+            // Note: Y rotation is intentionally NOT frozen so the vehicle can turn
         }
     }
     
@@ -82,8 +86,8 @@ public class HoverVehicleController : MonoBehaviour
         // Apply custom drag
         _rb.linearVelocity *= (1f - drag * Time.fixedDeltaTime);
         
-        // Turning (like steering)
-        if (Mathf.Abs(forwardInput) > 0.1f) // Only turn when moving
+        // Turning (like steering) - only if not using barycentric alignment
+        if (Mathf.Abs(forwardInput) > 0.1f && !(_barycentricAlignment != null && _barycentricAlignment.IsAlignmentEnabled))
         {
             float turn = turnInput * turnSpeed * Time.fixedDeltaTime;
             Quaternion turnRotation = Quaternion.Euler(0f, turn, 0f);
@@ -103,36 +107,30 @@ public class HoverVehicleController : MonoBehaviour
         ApplyVisualTilt();
     }
     
-    private void ApplyHoverForce()
+// HoverVehicleController.ApplyHoverForce()
+private void ApplyHoverForce()
+{
+    // Use barycentric up/normal if available, else fall back to world up
+    Vector3 upDir = (_barycentricAlignment != null && _barycentricAlignment.IsAlignedToSurface())
+        ? _barycentricAlignment.CurrentNormal   // surface normal
+        : Vector3.up;
+
+    Vector3 rayStart   = transform.position;
+    float   rayDistance = hoverHeight * 2f;
+
+    if (Physics.Raycast(rayStart, -upDir, out RaycastHit hit, rayDistance, groundLayer))
     {
-        // Raycast down to maintain hover height
-        RaycastHit hit;
-        Vector3 rayStart = transform.position;
-        float rayDistance = hoverHeight * 2f;
-        
-        if (Physics.Raycast(rayStart, -transform.up, out hit, rayDistance, groundLayer))
-        {
-            if (showDebugRays)
-            {
-                //Debug.DrawRay(rayStart, -transform.up * hit.distance, Color.green);
-            }
-            
-            float heightDifference = hoverHeight - hit.distance;
-            float force = heightDifference * hoverForce;
-            
-            // Add damping based on vertical velocity
-            force -= _rb.linearVelocity.y * hoverDamping;
-            
-            _rb.AddForce(Vector3.up * force, ForceMode.Acceleration);
-        }
-        else
-        {
-            if (showDebugRays)
-            {
-                //Debug.DrawRay(rayStart, -transform.up * rayDistance, Color.red);
-            }
-        }
+        float heightDifference = hoverHeight - hit.distance;
+        float force = heightDifference * hoverForce;
+
+        // Dampen only the velocity component along the normal
+        float normalVel = Vector3.Dot(_rb.linearVelocity, upDir);
+        force -= normalVel * hoverDamping;
+
+        _rb.AddForce(upDir * force, ForceMode.Acceleration);
     }
+}
+
     
     private void ApplyStabilityForce()
     {
@@ -162,11 +160,6 @@ public class HoverVehicleController : MonoBehaviour
         // The physics body stays upright, only the model tilts
         Quaternion targetRotation = Quaternion.Euler(0f, 0f, _targetTilt);
         visualModel.localRotation = Quaternion.Slerp(visualModel.localRotation, targetRotation, tiltSpeed * Time.fixedDeltaTime);
-    }
-    
-    void FixedUpdate()
-    {
-        _currentSpeed = _rb.linearVelocity.magnitude;
     }
     
     public float GetCurrentSpeed()
