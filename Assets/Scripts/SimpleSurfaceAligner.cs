@@ -10,6 +10,7 @@ public class SimpleSurfaceAligner : MonoBehaviour
     [SerializeField] private float moveSpeed = 10f;
     [SerializeField] private float turnSpeed = 100f;
     [SerializeField] private float jumpForce = 10f;
+    [SerializeField] private float velocityDamping = 3f; // How quickly velocity decreases when no input
     
     [Header("Surface Alignment")]
     [SerializeField] private float alignmentSpeed = 5f;
@@ -108,8 +109,15 @@ public class SimpleSurfaceAligner : MonoBehaviour
         }
         
         // Forward/backward movement
-        Vector3 moveForce = transform.forward * _moveInput.y * moveSpeed;
-        _rb.AddForce(moveForce, ForceMode.Acceleration);
+        if (Mathf.Abs(_moveInput.y) > 0.01f)
+        {
+            Vector3 moveForce = transform.forward * _moveInput.y * moveSpeed;
+            _rb.AddForce(moveForce, ForceMode.Acceleration);
+        }
+        
+        // Apply velocity damping to slow down when no input
+        // This prevents the floaty feeling
+        _rb.linearVelocity *= (1f - velocityDamping * Time.fixedDeltaTime);
     }
     
     /// <summary>
@@ -240,6 +248,22 @@ public class SimpleSurfaceAligner : MonoBehaviour
         {
             Debug.DrawRay(transform.position, surfaceNormal * (force / hoverForce), Color.cyan);
         }
+    }
+    
+    /// <summary>
+    /// Get the current velocity of the vehicle
+    /// </summary>
+    public Vector3 GetVelocity()
+    {
+        return _rb != null ? _rb.linearVelocity : Vector3.zero;
+    }
+    
+    /// <summary>
+    /// Get the current speed (magnitude of velocity)
+    /// </summary>
+    public float GetSpeed()
+    {
+        return _rb != null ? _rb.linearVelocity.magnitude : 0f;
     }
     
     // Optional: Visualize in editor
