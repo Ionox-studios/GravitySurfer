@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 /// <summary>
@@ -28,9 +29,46 @@ public class WaveRoadMesh : MonoBehaviour
     
     void Start()
     {
-        GenerateRoadMesh();
+        // Tag this object as a wave for buoyancy system
+        if (!gameObject.CompareTag("wave"))
+        {
+            gameObject.tag = "wave";
+            Debug.Log("WaveRoadMesh: Tagged as 'wave' for buoyancy system.");
+        }
         
-        // Immediately update with waves so we don't see the flat version
+        MeshFilter meshFilter = GetComponent<MeshFilter>();
+        if (meshFilter == null)
+        {
+            Debug.LogError("WaveRoadMesh: Missing MeshFilter component.");
+            return;
+        }
+
+        if (meshFilter.sharedMesh == null)
+        {
+            GenerateRoadMesh();
+        }
+
+        if (meshFilter.sharedMesh == null)
+        {
+            Debug.LogError("WaveRoadMesh: Failed to create shared mesh. Cannot animate waves.");
+            return;
+        }
+
+        mesh = Instantiate(meshFilter.sharedMesh);
+        mesh.name = meshFilter.sharedMesh.name + " Runtime";
+        meshFilter.mesh = mesh;
+
+    Vector3[] sourceVertices = mesh.vertices;
+    baseVertices = new Vector3[sourceVertices.Length];
+    Array.Copy(sourceVertices, baseVertices, sourceVertices.Length);
+
+    vertices = new Vector3[sourceVertices.Length];
+    Array.Copy(sourceVertices, vertices, sourceVertices.Length);
+
+    Vector3[] sourceNormals = mesh.normals;
+    normals = new Vector3[sourceNormals.Length];
+    Array.Copy(sourceNormals, normals, sourceNormals.Length);
+
         if (waveGenerator != null && updateMeshEveryFrame)
         {
             UpdateWaveDeformation();
@@ -65,9 +103,31 @@ public class WaveRoadMesh : MonoBehaviour
         Debug.Log($"WaveRoadMesh: Spline has {splineRoad.SplinePoints.Count} points, length {splineRoad.GetTotalLength():F2}");
         
         MeshFilter meshFilter = GetComponent<MeshFilter>();
-        mesh = new Mesh();
+        if (meshFilter == null)
+        {
+            Debug.LogError("WaveRoadMesh: Missing MeshFilter component.");
+            return;
+        }
+
+        if (mesh == null)
+        {
+            mesh = new Mesh();
+        }
+        else
+        {
+            mesh.Clear();
+        }
+
         mesh.name = "Wave Road Mesh";
-        meshFilter.mesh = mesh;
+
+        if (Application.isPlaying)
+        {
+            meshFilter.mesh = mesh;
+        }
+        else
+        {
+            meshFilter.sharedMesh = mesh;
+        }
         
         int widthSegs = splineRoad.WidthSegments;
         int lengthSegs = lengthSegments;
@@ -97,9 +157,12 @@ public class WaveRoadMesh : MonoBehaviour
                 float tWidth = x / (float)widthSegs - 0.5f;
                 Vector3 offset = right * (tWidth * roadWidth);
                 
-                baseVertices[vertIndex] = centerPoint + offset;
-                vertices[vertIndex] = baseVertices[vertIndex];
-                normals[vertIndex] = normal;
+                Vector3 worldPos = centerPoint + offset;
+                Vector3 localPos = transform.InverseTransformPoint(worldPos);
+
+                baseVertices[vertIndex] = localPos;
+                vertices[vertIndex] = localPos;
+                normals[vertIndex] = transform.InverseTransformDirection(normal).normalized;
                 uvs[vertIndex] = new Vector2(x / (float)widthSegs, distance / uvTileLength);
                 
                 vertIndex++;
@@ -156,10 +219,10 @@ public class WaveRoadMesh : MonoBehaviour
             }
         }
         
-        mesh.vertices = vertices;
-        mesh.triangles = triangles;
-        mesh.uv = uvs;
-        mesh.normals = normals;
+    mesh.vertices = vertices;
+    mesh.triangles = triangles;
+    mesh.uv = uvs;
+    mesh.normals = normals;
         
         Debug.Log($"WaveRoadMesh: Mesh generated with {vertices.Length} vertices and {triangles.Length / 3} triangles");
         
@@ -181,11 +244,15 @@ public class WaveRoadMesh : MonoBehaviour
         // Update vertex positions based on waves
         for (int i = 0; i < baseVertices.Length; i++)
         {
-            Vector3 basePos = baseVertices[i];
-            float waveHeight = waveGenerator.GetWaveHeight(basePos);
-            
-            vertices[i] = basePos + Vector3.up * waveHeight;
-            normals[i] = waveGenerator.GetWaveNormal(basePos);
+            Vector3 localBase = baseVertices[i];
+            Vector3 worldBase = transform.TransformPoint(localBase);
+
+            float waveHeight = waveGenerator.GetWaveHeight(worldBase);
+            Vector3 worldDeformed = worldBase + Vector3.up * waveHeight;
+
+            vertices[i] = transform.InverseTransformPoint(worldDeformed);
+            Vector3 worldNormal = waveGenerator.GetWaveNormal(worldBase);
+            normals[i] = transform.InverseTransformDirection(worldNormal).normalized;
         }
         
         mesh.vertices = vertices;
@@ -217,5 +284,61 @@ public class WaveRoadMesh : MonoBehaviour
         surfaceNormal = waveGenerator.GetWaveNormal(surfacePoint);
         
         return true;
+    }
+    
+    void OnDrawGizmos()
+    {
+        if (splineRoad == null) return;
+        
+        // Draw the spline path
+        if (splineRoad.SplinePoints != null && splineRoad.SplinePoints.Count > 1)
+        {
+            Gizmos.color = Color.cyan;
+            for (int i = 0; i < splineRoad.SplinePoints.Count - 1; i++)
+            {
+                Gizmos.DrawLine(splineRoad.SplinePoints[i], splineRoad.SplinePoints[i + 1]);
+            }
+        }
+        
+        // Draw the road edges
+        if (splineRoad.SplinePoints != null && splineRoad.SplinePoints.Count > 1)
+        {
+            Gizmos.color = Color.yellow;
+            float roadWidth = splineRoad.RoadWidth;
+            float totalLength = splineRoad.GetTotalLength();
+            int segments = Mathf.Min(50, lengthSegments); // Limit for performance
+            
+            for (int i = 0; i <= segments; i++)
+            {
+                float t = i / (float)segments;
+                float distance = t * totalLength;
+                
+                Vector3 normal, tangent;
+                Vector3 centerPoint = splineRoad.GetPointAtDistance(distance, out normal, out tangent);
+                Vector3 right = Vector3.Cross(normal, tangent).normalized;
+                
+                Vector3 leftEdge = centerPoint - right * (roadWidth * 0.5f);
+                Vector3 rightEdge = centerPoint + right * (roadWidth * 0.5f);
+                
+                Gizmos.DrawLine(leftEdge, rightEdge);
+                
+                // Draw edge lines
+                if (i > 0)
+                {
+                    float prevT = (i - 1) / (float)segments;
+                    float prevDistance = prevT * totalLength;
+                    
+                    Vector3 prevNormal, prevTangent;
+                    Vector3 prevCenter = splineRoad.GetPointAtDistance(prevDistance, out prevNormal, out prevTangent);
+                    Vector3 prevRight = Vector3.Cross(prevNormal, prevTangent).normalized;
+                    
+                    Vector3 prevLeftEdge = prevCenter - prevRight * (roadWidth * 0.5f);
+                    Vector3 prevRightEdge = prevCenter + prevRight * (roadWidth * 0.5f);
+                    
+                    Gizmos.DrawLine(prevLeftEdge, leftEdge);
+                    Gizmos.DrawLine(prevRightEdge, rightEdge);
+                }
+            }
+        }
     }
 }
