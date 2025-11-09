@@ -8,6 +8,7 @@ public class SimpleSurfaceAligner : MonoBehaviour
 {
     [Header("Movement")]
     [SerializeField] private float moveSpeed = 10f;
+    [SerializeField] private float maxSpeed = 30f;
     [SerializeField] private float turnSpeed = 100f;
     [SerializeField] private float jumpForce = 10f;
     [SerializeField] private float velocityDamping = 3f; // How quickly velocity decreases when no input
@@ -111,8 +112,23 @@ public class SimpleSurfaceAligner : MonoBehaviour
         // Forward/backward movement
         if (Mathf.Abs(_moveInput.y) > 0.01f)
         {
-            Vector3 moveForce = transform.forward * _moveInput.y * moveSpeed;
-            _rb.AddForce(moveForce, ForceMode.Acceleration);
+            // Check current speed in local forward direction
+            Vector3 localVelocity = transform.InverseTransformDirection(_rb.linearVelocity);
+            float forwardSpeed = localVelocity.z;
+            
+            // Only apply acceleration if:
+            // - Moving forward and below max speed, OR
+            // - Moving backward (negative input), OR
+            // - Trying to slow down (input opposes current velocity)
+            bool canAccelerate = (_moveInput.y > 0 && forwardSpeed < maxSpeed) || // Forward and below max
+                                 (_moveInput.y < 0 && forwardSpeed > -maxSpeed) || // Backward and below max (in reverse)
+                                 (_moveInput.y * forwardSpeed < 0); // Input opposes velocity (braking)
+            
+            if (canAccelerate)
+            {
+                Vector3 moveForce = transform.forward * _moveInput.y * moveSpeed;
+                _rb.AddForce(moveForce, ForceMode.Acceleration);
+            }
         }
         
         // Apply velocity damping to slow down when no input
@@ -141,14 +157,13 @@ public class SimpleSurfaceAligner : MonoBehaviour
             Quaternion newRotation = Quaternion.Slerp(transform.rotation, targetRotation, alignmentSpeed * Time.fixedDeltaTime);
             _rb.MoveRotation(newRotation);
             
-            // Apply hover or suction force
+            // Apply suction force (always active)
+            ApplySuctionForce(hit, surfaceNormal);
+            
+            // Apply hover force (if enabled, sums with suction)
             if (enableHover)
             {
                 ApplyHoverForce(hit, surfaceNormal);
-            }
-            else
-            {
-                ApplySuctionForce(hit, surfaceNormal);
             }
             
             // Debug visualization
@@ -227,14 +242,22 @@ public class SimpleSurfaceAligner : MonoBehaviour
     
     /// <summary>
     /// Applies hover force to maintain a constant height above the surface (like a spring)
+    /// Uses exponential force when below target height to strongly push away from surface
+    /// Never pulls down - only pushes up when below target
     /// </summary>
     private void ApplyHoverForce(RaycastHit hit, Vector3 surfaceNormal)
     {
-        // Calculate how far we are from the desired hover height
-        float heightDifference = hoverHeight - hit.distance;
+        // Only apply hover force when below target height (too close to surface)
+        if (hit.distance >= hoverHeight)
+        {
+            return; // Above target height - no hover force needed
+        }
         
-        // Spring force proportional to height difference
-        float force = heightDifference * hoverForce;
+        // Below target height - calculate exponential push force
+        float heightDifference = hoverHeight - hit.distance;
+        float normalizedError = heightDifference / hoverHeight;
+        float exponentialMultiplier = normalizedError * normalizedError; // Square for exponential growth
+        float force = exponentialMultiplier * hoverForce;
         
         // Dampen velocity along the surface normal (prevents oscillation)
         float normalVel = Vector3.Dot(_rb.linearVelocity, surfaceNormal);

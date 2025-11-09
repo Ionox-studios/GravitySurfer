@@ -449,37 +449,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &396485722
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 396485723}
-  m_Layer: 0
-  m_Name: ControlPoint2
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &396485723
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 396485722}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -59.8, y: 0, z: 20}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1242693369}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0
@@ -705,7 +674,7 @@ Rigidbody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 477517787}
   serializedVersion: 5
-  m_Mass: 20
+  m_Mass: 150
   m_LinearDamping: 0.1
   m_AngularDamping: 10
   m_CenterOfMass: {x: 0, y: 0, z: 0}
@@ -776,6 +745,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SimpleSurfaceAligner
   moveSpeed: 80
+  maxSpeed: 300
   turnSpeed: 100
   jumpForce: 150
   velocityDamping: 0.1
@@ -787,11 +757,11 @@ MonoBehaviour:
   showDebugRays: 1
   worldDownBiasDistance: 8
   worldDownBiasStrength: 2
-  suctionForce: 0
+  suctionForce: 2
   suctionDamping: 2
   distanceScaling: 1
   maxSuctionDistance: 500
-  distanceScaleMultiplier: 1
+  distanceScaleMultiplier: 5
   minDistanceScale: 0
   enableHover: 1
   hoverHeight: 4
@@ -823,16 +793,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: acfdb640f310da7438406dfce136397d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WaveBuoyancy
-  buoyancyForce: 100
+  buoyancyForce: 10
   buoyancyDamping: 2
-  targetHeightAboveWave: 1
+  targetHeightAboveWave: 0
   maxBuoyancyForce: 500
   raycastDistance: 50
   waveLayer:
     serializedVersion: 2
     m_Bits: 128
   showDebugRays: 1
-  colliderBottomOffset: 3
+  colliderBottomOffset: 4
   surfaceAligner: {fileID: 477517794}
 --- !u!1 &832575517
 GameObject:
@@ -1030,9 +1000,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1384267369}
-  - {fileID: 396485723}
-  - {fileID: 1901383436}
-  - {fileID: 1493072885}
+  - {fileID: 1963701464}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1320243568
@@ -1183,37 +1151,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 7876023681238672744, guid: 67893f71f51860d4fbd7e7786b3b053e, type: 3}
   m_PrefabInstance: {fileID: 38412834}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &1493072884
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1493072885}
-  m_Layer: 0
-  m_Name: ControlPoint4
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1493072885
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1493072884}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 60}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1242693369}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1682291410
 GameObject:
   m_ObjectHideFlags: 0
@@ -1325,7 +1262,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1901383435
+--- !u!1 &1963701463
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1333,24 +1270,24 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1901383436}
+  - component: {fileID: 1963701464}
   m_Layer: 0
-  m_Name: ControlPoint3
+  m_Name: ControlPoint1 (1)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1901383436
+--- !u!4 &1963701464
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1901383435}
+  m_GameObject: {fileID: 1963701463}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 40}
+  m_LocalPosition: {x: 4000, y: 0, z: -98.9}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1529,10 +1466,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e1b7590db10aa8c4187cc7e57c48c0af, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WaveGenerator
-  waveHeight: 10
-  waveLength: 100
-  waveSpeed: 1
-  waveDirection: {x: 0, y: 1}
+  waveHeight: 50
+  waveLength: 300
+  waveSpeed: 0.5
+  waveDirection: {x: -1, y: 0}
   useMultipleWaves: 0
   additionalWaves: []
 --- !u!114 &2030624285
@@ -1549,12 +1486,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SplineRoad
   controlPoints:
   - {fileID: 1384267369}
-  - {fileID: 396485723}
-  - {fileID: 1901383436}
-  - {fileID: 1493072885}
-  closedLoop: 0
+  - {fileID: 1963701464}
+  closedLoop: 1
   resolution: 10
-  roadWidth: 100
+  roadWidth: 500
   widthSegments: 10
   showSpline: 1
   showControlPoints: 1

@@ -30,11 +30,6 @@ public class WaveRoadMesh : MonoBehaviour
     void Start()
     {
         // Tag this object as a wave for buoyancy system
-        if (!gameObject.CompareTag("wave"))
-        {
-            gameObject.tag = "wave";
-            Debug.Log("WaveRoadMesh: Tagged as 'wave' for buoyancy system.");
-        }
         
         MeshFilter meshFilter = GetComponent<MeshFilter>();
         if (meshFilter == null)
