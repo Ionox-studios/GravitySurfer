@@ -221,13 +221,15 @@ public class WaveRoadMesh : MonoBehaviour
         
         Debug.Log($"WaveRoadMesh: Mesh generated with {vertices.Length} vertices and {triangles.Length / 3} triangles");
         
-        // Add mesh collider for physics
+        // Add mesh collider for raycasting only (not physical collision)
         MeshCollider meshCollider = GetComponent<MeshCollider>();
         if (meshCollider == null)
         {
             meshCollider = gameObject.AddComponent<MeshCollider>();
         }
         meshCollider.sharedMesh = mesh;
+        meshCollider.convex = false; // Non-convex for accurate raycasting
+        meshCollider.isTrigger = true; // Make it a trigger so it doesn't physically block the player
         
         Debug.Log("WaveRoadMesh: Generation complete! Mesh should now be visible.");
     }
