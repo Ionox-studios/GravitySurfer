@@ -12,6 +12,7 @@ public class SimpleSurfaceAligner : MonoBehaviour
     [SerializeField] private float turnSpeed = 100f;
     [SerializeField] private float jumpForce = 10f;
     [SerializeField] private float velocityDamping = 3f; // How quickly velocity decreases when no input
+    [SerializeField] private float velocityAlignmentStrength = 5f; // How much velocity rotates with the object (arcade feel)
     
     [Header("Surface Alignment")]
     [SerializeField] private float alignmentSpeed = 5f;
@@ -24,6 +25,8 @@ public class SimpleSurfaceAligner : MonoBehaviour
     [Header("Surface Suction")]
     [SerializeField] private float suctionForce = 20f; // Force pulling toward surface
     [SerializeField] private float suctionDamping = 2f; // Dampens bounce/oscillation
+    [SerializeField] private float suctionDampingDistance = 5f; // Max distance for damping to apply
+    [SerializeField] private float suctionActivationDistance = 5f; // Max distance for suction force to apply
     [SerializeField] private bool distanceScaling = true; // Scale force by distance
     [SerializeField] private float maxSuctionDistance = 10f; // Distance at which suction is strongest
     [SerializeField] private float distanceScaleMultiplier = 1f; // Multiplier for distance scaling strength
@@ -37,6 +40,7 @@ public class SimpleSurfaceAligner : MonoBehaviour
     
     private Rigidbody _rb;
     private Vector2 _moveInput; // Store input for FixedUpdate
+    private bool _isGrounded; // Track if we detected a surface this frame
     
     void Awake()
     {
@@ -109,6 +113,21 @@ public class SimpleSurfaceAligner : MonoBehaviour
             transform.Rotate(0f, turn, 0f, Space.World);
         }
         
+        // Arcade-style velocity alignment: gradually rotate velocity toward facing direction
+        // Only apply when grounded to avoid interfering with falling/jumping
+        if (_isGrounded && velocityAlignmentStrength > 0f && _rb.linearVelocity.magnitude > 0.1f)
+        {
+            // Get current speed
+            float currentSpeed = _rb.linearVelocity.magnitude;
+            
+            // Calculate desired velocity direction (forward-facing)
+            Vector3 desiredVelocity = transform.forward * currentSpeed;
+            
+            // Lerp current velocity toward desired velocity
+            Vector3 newVelocity = Vector3.Lerp(_rb.linearVelocity, desiredVelocity, velocityAlignmentStrength * Time.fixedDeltaTime);
+            _rb.linearVelocity = newVelocity;
+        }
+        
         // Forward/backward movement
         if (Mathf.Abs(_moveInput.y) > 0.01f)
         {
@@ -131,9 +150,12 @@ public class SimpleSurfaceAligner : MonoBehaviour
             }
         }
         
-        // Apply velocity damping to slow down when no input
-        // This prevents the floaty feeling
-        _rb.linearVelocity *= (1f - velocityDamping * Time.fixedDeltaTime);
+        // Apply velocity damping to horizontal movement only (don't interfere with gravity/falling)
+        // This prevents the floaty feeling without limiting fall speed
+        Vector3 currentVelocity = _rb.linearVelocity;
+        Vector3 horizontalVelocity = new Vector3(currentVelocity.x, 0f, currentVelocity.z);
+        horizontalVelocity *= (1f - velocityDamping * Time.fixedDeltaTime);
+        _rb.linearVelocity = new Vector3(horizontalVelocity.x, currentVelocity.y, horizontalVelocity.z);
     }
     
     /// <summary>
@@ -147,6 +169,8 @@ public class SimpleSurfaceAligner : MonoBehaviour
         
         if (Physics.Raycast(rayStart, rayDirection, out RaycastHit hit, raycastDistance, groundLayer))
         {
+            _isGrounded = true; // Surface detected
+            
             // We hit a surface! Get its normal
             Vector3 surfaceNormal = hit.normal;
             
@@ -175,6 +199,8 @@ public class SimpleSurfaceAligner : MonoBehaviour
         }
         else
         {
+            _isGrounded = false; // No surface detected
+            
             // No surface detected - apply world down bias
             ApplyWorldDownBias();
             
@@ -227,8 +253,13 @@ public class SimpleSurfaceAligner : MonoBehaviour
         Vector3 force = towardSurface * suctionForce * distanceMultiplier;
         
         // Dampen velocity along the surface normal to prevent bouncing
-        float normalVelocity = Vector3.Dot(_rb.linearVelocity, surfaceNormal);
-        Vector3 dampingForce = -surfaceNormal * (normalVelocity * suctionDamping);
+        // Only apply damping when close to surface (prevents interfering with falling from height)
+        Vector3 dampingForce = Vector3.zero;
+        if (hit.distance <= suctionDampingDistance)
+        {
+            float normalVelocity = Vector3.Dot(_rb.linearVelocity, surfaceNormal);
+            dampingForce = -surfaceNormal * (normalVelocity * suctionDamping);
+        }
         
         // Combine forces
         _rb.AddForce(force + dampingForce, ForceMode.Acceleration);
