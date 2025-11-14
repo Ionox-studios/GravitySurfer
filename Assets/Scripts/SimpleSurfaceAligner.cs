@@ -38,6 +38,12 @@ public class SimpleSurfaceAligner : MonoBehaviour
     [SerializeField] private float hoverForce = 50f; // Spring force to maintain height
     [SerializeField] private float hoverDamping = 5f; // Dampening for hover oscillation
     
+    [Header("Slam Down")]
+    [SerializeField] private bool enableSlamDown = true; // Toggle slam down force
+    [SerializeField] private float slamDownThreshold = 15f; // Distance above surface to trigger slam
+    [SerializeField] private float slamDownForce = 100f; // Force applied when slamming down
+    [SerializeField] private bool slamTowardSurface = true; // If true, slams toward surface normal; if false, slams toward world down
+    
     private Rigidbody _rb;
     private Vector2 _moveInput; // Store input for FixedUpdate
     private bool _isGrounded; // Track if we detected a surface this frame
@@ -184,6 +190,12 @@ public class SimpleSurfaceAligner : MonoBehaviour
             // Apply suction force (always active)
             ApplySuctionForce(hit, surfaceNormal);
             
+            // Apply slam down force (if enabled and above threshold)
+            if (enableSlamDown && hit.distance > slamDownThreshold)
+            {
+                ApplySlamDownForce(hit, surfaceNormal);
+            }
+            
             // Apply hover force (if enabled, sums with suction)
             if (enableHover)
             {
@@ -301,6 +313,36 @@ public class SimpleSurfaceAligner : MonoBehaviour
         if (showDebugRays)
         {
             Debug.DrawRay(transform.position, surfaceNormal * (force / hoverForce), Color.cyan);
+        }
+    }
+    
+    /// <summary>
+    /// Slams the player down toward the ground when above a distance threshold
+    /// Very aggressive force to keep player grounded
+    /// </summary>
+    private void ApplySlamDownForce(RaycastHit hit, Vector3 surfaceNormal)
+    {
+        // Determine slam direction
+        Vector3 slamDirection;
+        if (slamTowardSurface)
+        {
+            // Slam toward the surface (perpendicular to surface)
+            slamDirection = -surfaceNormal;
+        }
+        else
+        {
+            // Slam toward world down
+            slamDirection = Vector3.down;
+        }
+        
+        // Apply strong downward force
+        Vector3 force = slamDirection * slamDownForce;
+        _rb.AddForce(force, ForceMode.Acceleration);
+        
+        // Debug: Show slam force with red ray
+        if (showDebugRays)
+        {
+            Debug.DrawRay(transform.position, slamDirection * 5f, Color.red);
         }
     }
     
