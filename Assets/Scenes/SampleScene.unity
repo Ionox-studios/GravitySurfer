@@ -15875,7 +15875,6 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 128
   showDebugRays: 1
-  surfaceAligner: {fileID: 0}
 --- !u!114 &477517797
 MonoBehaviour:
   m_ObjectHideFlags: 0

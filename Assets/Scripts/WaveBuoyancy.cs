@@ -22,9 +22,6 @@ public class WaveBuoyancy : MonoBehaviour
     [SerializeField] private LayerMask waveLayer = -1; // Layer(s) to detect as waves
     [SerializeField] private bool showDebugRays = true;
     
-    [Header("References")]
-    [SerializeField] private SimpleSurfaceAligner surfaceAligner; // Reference to existing hover system
-    
     private Rigidbody _rb;
     private bool _isInWave = false; // Whether any point is currently in a wave
     
@@ -52,12 +49,6 @@ public class WaveBuoyancy : MonoBehaviour
         {
             Debug.LogError("WaveBuoyancy requires all 4 buoyancy points to be assigned!");
             return;
-        }
-        
-        // Auto-find surface aligner if not assigned
-        if (surfaceAligner == null)
-        {
-            surfaceAligner = GetComponent<SimpleSurfaceAligner>();
         }
         
         Debug.Log("WaveBuoyancy initialized with 4-point system on " + gameObject.name);
