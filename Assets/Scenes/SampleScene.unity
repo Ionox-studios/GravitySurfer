@@ -15855,7 +15855,7 @@ MonoBehaviour:
   velocityDamping: 0.1
   velocityAlignmentStrength: 0.5
   alignmentSpeed: 1
-  raycastDistance: 300
+  raycastDistance: 600
   groundLayer:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -15911,7 +15911,7 @@ MonoBehaviour:
   buoyancyForce: 30
   buoyancyDamping: 2
   targetHeightAboveWave: 0
-  maxBuoyancyForcePerPoint: 200
+  maxBuoyancyForcePerPoint: 600
   raycastDistance: 50
   waveLayer:
     serializedVersion: 2
@@ -35306,7 +35306,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &1923975698
 MonoBehaviour:
   m_ObjectHideFlags: 0
