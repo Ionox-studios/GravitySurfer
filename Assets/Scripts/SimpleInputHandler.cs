@@ -2,12 +2,12 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Simple input handler for SimpleSurfaceAligner.
+/// Simple input handler for VehicleController.
 /// Uses Unity Input System - same pattern as InputHandler.cs
 /// </summary>
 public class SimpleInputHandler : MonoBehaviour
 {
-    public SimpleSurfaceAligner surfaceAligner;
+    public VehicleController vehicleController;
     
     [SerializeField] private InputActionAsset inputActions;
     
@@ -17,15 +17,15 @@ public class SimpleInputHandler : MonoBehaviour
     
     void Start()
     {
-        // Auto-find the aligner component if not assigned
-        if (surfaceAligner == null)
+        // Auto-find the controller component if not assigned
+        if (vehicleController == null)
         {
-            surfaceAligner = GetComponent<SimpleSurfaceAligner>();
+            vehicleController = GetComponent<VehicleController>();
         }
         
-        if (surfaceAligner == null)
+        if (vehicleController == null)
         {
-            Debug.LogError("SimpleInputHandler: No SimpleSurfaceAligner found!");
+            Debug.LogError("SimpleInputHandler: No VehicleController found!");
             return;
         }
         
@@ -74,9 +74,9 @@ public class SimpleInputHandler : MonoBehaviour
     
     private void OnJump(UnityEngine.InputSystem.InputAction.CallbackContext context)
     {
-        if (surfaceAligner != null)
+        if (vehicleController != null)
         {
-            surfaceAligner.Jump();
+            vehicleController.Jump();
         }
     }
     
@@ -98,9 +98,9 @@ public class SimpleInputHandler : MonoBehaviour
     void FixedUpdate()
     {
         // Physics-based movement in FixedUpdate
-        if (surfaceAligner != null)
+        if (vehicleController != null)
         {
-            surfaceAligner.Move(_currentMoveInput);
+            vehicleController.Move(_currentMoveInput);
         }
     }
     

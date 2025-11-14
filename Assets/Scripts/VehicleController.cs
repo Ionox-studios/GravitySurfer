@@ -1,10 +1,10 @@
 using UnityEngine;
 
 /// <summary>
-/// Minimal controller with basic movement and optional hover functionality.
-/// Surface alignment is handled by SurfaceAttraction script.
+/// Handles vehicle movement, turning, jumping, and optional hover functionality.
+/// Surface alignment and attraction forces are handled by SurfaceAttraction script.
 /// </summary>
-public class SimpleSurfaceAligner : MonoBehaviour
+public class VehicleController : MonoBehaviour
 {
     [Header("Movement")]
     [SerializeField] private float moveSpeed = 10f;
@@ -47,7 +47,7 @@ public class SimpleSurfaceAligner : MonoBehaviour
         // We'll control rotation manually with the alignment system
         _rb.constraints = RigidbodyConstraints.FreezeRotation;
         
-        Debug.Log("SimpleSurfaceAligner initialized on " + gameObject.name);
+        Debug.Log("VehicleController initialized on " + gameObject.name);
     }
     
     void FixedUpdate()

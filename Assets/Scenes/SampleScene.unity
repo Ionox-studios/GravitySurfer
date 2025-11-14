@@ -15689,10 +15689,10 @@ GameObject:
   - component: {fileID: 477517790}
   - component: {fileID: 477517789}
   - component: {fileID: 477517795}
-  - component: {fileID: 477517794}
   - component: {fileID: 477517796}
-  - component: {fileID: 477517797}
   - component: {fileID: 477517788}
+  - component: {fileID: 477517798}
+  - component: {fileID: 477517797}
   m_Layer: 0
   m_Name: hovercar
   m_TagString: Player
@@ -15763,7 +15763,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 171c707000dd31f4dba40e8bc7f29222, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::InputHandler
-  VehicleController: {fileID: 477517789}
+  VehicleController: {fileID: 0}
   CameraController: {fileID: 0}
   inputActions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
 --- !u!54 &477517791
@@ -15836,48 +15836,6 @@ MonoBehaviour:
   smoothTime: 0.3
   showDebugRays: 1
   showDebugInfo: 0
---- !u!114 &477517794
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 477517787}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fd06450667f2f5f429282b36796b7e0f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SimpleSurfaceAligner
-  moveSpeed: 40
-  maxSpeed: 800
-  turnSpeed: 200
-  jumpForce: 8000
-  velocityDamping: 0.1
-  velocityAlignmentStrength: 0.5
-  alignmentSpeed: 1
-  raycastDistance: 600
-  groundLayer:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  showDebugRays: 1
-  worldDownBiasDistance: 8
-  worldDownBiasStrength: 2
-  suctionForce: 80
-  suctionDamping: 0
-  suctionDampingDistance: 5
-  suctionActivationDistance: 5
-  distanceScaling: 1
-  maxSuctionDistance: 20
-  distanceScaleMultiplier: 1
-  minDistanceScale: 0
-  enableHover: 1
-  hoverHeight: 4
-  hoverForce: 50
-  hoverDamping: 3
-  enableSlamDown: 1
-  slamDownThreshold: 100
-  slamDownForce: 50
-  slamTowardSurface: 1
 --- !u!114 &477517795
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15890,7 +15848,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 20fc60d8259d9f6499d2064fe1ff5870, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SimpleInputHandler
-  surfaceAligner: {fileID: 477517794}
+  vehicleController: {fileID: 477517798}
   inputActions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
 --- !u!114 &477517796
 MonoBehaviour:
@@ -15917,7 +15875,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 128
   showDebugRays: 1
-  surfaceAligner: {fileID: 477517794}
+  surfaceAligner: {fileID: 0}
 --- !u!114 &477517797
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15927,9 +15885,56 @@ MonoBehaviour:
   m_GameObject: {fileID: 477517787}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3e36517a062ae414ca99727b0779258c, type: 3}
+  m_Script: {fileID: 11500000, guid: 4f0c4afcf5b6d0748a440073a4cebf1d, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::WavePhysics
+  m_EditorClassIdentifier: Assembly-CSharp::SurfaceAttraction
+  raycastDistance: 600
+  groundLayer:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  showDebugRays: 1
+  alignmentSpeed: 1
+  suctionForce: 80
+  suctionDamping: 0
+  suctionDampingDistance: 5
+  suctionActivationDistance: 5
+  distanceScaling: 1
+  maxSuctionDistance: 20
+  distanceScaleMultiplier: 1
+  minDistanceScale: 0
+  enableSlamDown: 1
+  slamDownThreshold: 100
+  slamDownForce: 50
+  slamTowardSurface: 1
+  worldDownBiasDistance: 50
+  worldDownBiasStrength: 2
+--- !u!114 &477517798
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 477517787}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a93c73c2707b6044ea94fa5c9050c3e8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VehicleController
+  moveSpeed: 40
+  maxSpeed: 800
+  turnSpeed: 200
+  jumpForce: 8000
+  velocityDamping: 0.1
+  velocityAlignmentStrength: 0.5
+  raycastDistance: 600
+  groundLayer:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  showDebugRays: 1
+  enableHover: 1
+  hoverHeight: 2
+  hoverForce: 50
+  hoverDamping: 3
 --- !u!43 &482476805
 Mesh:
   m_ObjectHideFlags: 0
