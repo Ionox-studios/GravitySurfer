@@ -15686,8 +15686,6 @@ GameObject:
   - component: {fileID: 477517792}
   - component: {fileID: 477517791}
   - component: {fileID: 477517793}
-  - component: {fileID: 477517790}
-  - component: {fileID: 477517789}
   - component: {fileID: 477517795}
   - component: {fileID: 477517796}
   - component: {fileID: 477517788}
@@ -15723,49 +15721,6 @@ CapsuleCollider:
   m_Height: 2.5906966
   m_Direction: 1
   m_Center: {x: 0.21943665, y: 1.0556742, z: 0}
---- !u!114 &477517789
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 477517787}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ac17393fc7839b4438e25f4e5f43330a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::HoverVehicleController
-  acceleration: 300
-  maxSpeed: 400
-  drag: 2
-  turnSpeed: 100
-  turnDrag: 3
-  hoverHeight: 2
-  hoverForce: 300
-  hoverDamping: 0.5
-  groundLayer:
-    serializedVersion: 2
-    m_Bits: 64
-  showDebugRays: 0
-  tiltAngle: 2
-  tiltSpeed: 0
-  stabilityForce: 20
-  visualModel: {fileID: 352892310}
---- !u!114 &477517790
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 477517787}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 171c707000dd31f4dba40e8bc7f29222, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::InputHandler
-  VehicleController: {fileID: 0}
-  CameraController: {fileID: 0}
-  inputActions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
 --- !u!54 &477517791
 Rigidbody:
   m_ObjectHideFlags: 0
