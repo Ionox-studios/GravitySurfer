@@ -21,6 +21,16 @@ public class EnemyBehavior : MonoBehaviour
     [SerializeField] private float backupTime = 0.5f;     // how long to back up
     [SerializeField] private float forwardTime = 1f;      // how long to push forward after turning
 
+    [Header("Player Capture")]
+    [SerializeField] private Transform player;            // reference to player transform
+    [SerializeField] private float captureRadius = 15f;   // distance to trigger capture
+    [SerializeField] private float captureDistance = 3f;  // how far to the side of the player
+    [SerializeField] private float captureDuration = 5f;  // how long to stay captured
+    [SerializeField] private float captureRange = 5f;     // range within which to stay next to player
+    [SerializeField] private float captureLerpTime = 2f;  // time in seconds to lerp to capture position
+    [SerializeField] private float captureStartDelay = 10f; // delay before first capture can happen
+    [SerializeField] private float captureCooldown = 30f;   // cooldown after capture ends before next capture
+
     private VehicleController _vehicle;
     private int _currentIndex;
     private float _currentSteer;
@@ -33,6 +43,17 @@ public class EnemyBehavior : MonoBehaviour
     private float _unstuckTimer;
     private int _unstuckPhase; // 0 = backup, 1 = turn, 2 = forward
     private float _randomTurnDirection;
+
+    // Capture behavior
+    private bool _isCapturing;
+    private float _captureTimer;
+    private bool _captureOnRight; // true = right side, false = left side
+    private Vector3 _captureOffset; // the locked offset from player
+    private float _gameTimer; // tracks time since game start
+    private float _captureCooldownTimer; // tracks cooldown between captures
+    private bool _hasReachedCapturePosition; // tracks if enemy has lerped to exact position
+    private float _captureLerpTimer; // tracks lerp progress
+    private Vector3 _captureStartOffset; // initial offset when capture starts
 
     void Awake()
     {
@@ -48,6 +69,53 @@ public class EnemyBehavior : MonoBehaviour
     void FixedUpdate()
     {
         if (waypoints == null || waypoints.Length == 0) return;
+
+        // Track game time
+        _gameTimer += Time.fixedDeltaTime;
+        
+        // Update cooldown timer
+        if (_captureCooldownTimer > 0f)
+        {
+            _captureCooldownTimer -= Time.fixedDeltaTime;
+        }
+
+        // Check for player capture
+        if (player != null && !_isCapturing && !_isUnsticking)
+        {
+            // Only allow capture after initial delay and if cooldown has expired
+            if (_gameTimer >= captureStartDelay && _captureCooldownTimer <= 0f)
+            {
+                float distanceToPlayer = Vector3.Distance(transform.position, player.position);
+                
+                if (distanceToPlayer <= captureRadius)
+                {
+                    // Start capture!
+                    _isCapturing = true;
+                    _captureTimer = 0f;
+                    _captureLerpTimer = 0f;
+                    _hasReachedCapturePosition = false;
+                    
+                    // Determine which side of the player we're on
+                    Vector3 toEnemy = transform.position - player.position;
+                    Vector3 playerRight = player.right;
+                    float dot = Vector3.Dot(toEnemy, playerRight);
+                    _captureOnRight = dot > 0; // positive = right, negative = left
+                    
+                    // Store initial offset
+                    _captureStartOffset = transform.position - player.position;
+                    _captureOffset = _captureStartOffset;
+                    
+                    Debug.Log($"Enemy capturing player! Side: {(_captureOnRight ? "Right" : "Left")}");
+                }
+            }
+        }
+
+        // Execute capture behavior if active
+        if (_isCapturing)
+        {
+            ExecuteCaptureBehavior();
+            return;
+        }
 
         // Check if we're stuck (compare to position from 3 seconds ago, not last frame)
         if (!_isUnsticking)
@@ -153,5 +221,73 @@ public class EnemyBehavior : MonoBehaviour
 
         // 5. Feed inputs into your vehicle controller
         _vehicle.Move(new Vector2(_currentSteer, _currentThrottle));
+    }
+
+    private void ExecuteCaptureBehavior()
+    {
+        if (player == null)
+        {
+            _isCapturing = false;
+            return;
+        }
+
+        _captureTimer += Time.fixedDeltaTime;
+
+        // Check if capture duration is complete
+        if (_captureTimer >= captureDuration)
+        {
+            _isCapturing = false;
+            _captureCooldownTimer = captureCooldown; // Start cooldown
+            Debug.Log("Capture duration complete. Starting 30s cooldown.");
+            return;
+        }
+
+        // Calculate the exact target position (directly to the right or left)
+        Vector3 sideDirection = _captureOnRight ? player.right : -player.right;
+        Vector3 exactTargetOffset = sideDirection * captureDistance;
+        
+        if (!_hasReachedCapturePosition)
+        {
+            // Smoothly lerp to the exact position over captureLerpTime seconds
+            _captureLerpTimer += Time.fixedDeltaTime;
+            float t = Mathf.Clamp01(_captureLerpTimer / captureLerpTime);
+            _captureOffset = Vector3.Lerp(_captureStartOffset, exactTargetOffset, t);
+            
+            // Check if lerp is complete
+            if (t >= 1f)
+            {
+                _captureOffset = exactTargetOffset;
+                _hasReachedCapturePosition = true;
+                Debug.Log("Enemy reached exact capture position!");
+            }
+        }
+        else
+        {
+            // Now locked at exact position, allow player to move left/right within range
+            Vector3 playerRight = player.right;
+            float lateralOffset = Vector3.Dot(_captureOffset, playerRight);
+            
+            // Clamp the lateral offset to captureRange
+            lateralOffset = Mathf.Clamp(lateralOffset, -captureRange, captureRange);
+            
+            // Get forward and up components (locked to player)
+            Vector3 playerForward = player.forward;
+            Vector3 playerUp = player.up;
+            
+            float forwardOffset = Vector3.Dot(_captureOffset, playerForward);
+            float upOffset = Vector3.Dot(_captureOffset, playerUp);
+            
+            // Reconstruct the clamped offset
+            _captureOffset = playerRight * lateralOffset + playerForward * forwardOffset + playerUp * upOffset;
+        }
+        
+        // Set position directly locked to player
+        transform.position = player.position + _captureOffset;
+        
+        // Match player's rotation
+        transform.rotation = player.rotation;
+
+        // Set vehicle inputs to zero since we're overriding position
+        _vehicle.Move(Vector2.zero);
     }
 }

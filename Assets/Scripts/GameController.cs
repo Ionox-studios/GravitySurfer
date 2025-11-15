@@ -15,6 +15,7 @@ public class GameController : MonoBehaviour
     public GameObject startPanel;
     public GameObject gameOverPanel;
     public GameObject winPanel;
+    public GameObject deathPanel;
 
     [Header("Player Reference")]
     public Transform player;
@@ -78,6 +79,7 @@ public class GameController : MonoBehaviour
         if (startPanel != null) startPanel.SetActive(true);
         if (gameOverPanel != null) gameOverPanel.SetActive(false);
         if (winPanel != null) winPanel.SetActive(false);
+        if (deathPanel != null) deathPanel.SetActive(false);
         
         // Pause time until game starts
         Time.timeScale = 0f;
