@@ -233,6 +233,15 @@ public class VehicleController : MonoBehaviour
         return _rb != null ? _rb.linearVelocity.magnitude : 0f;
     }
     
+    /// <summary>
+    /// Get the current speed as a percentage of max speed (0-1)
+    /// </summary>
+    public float GetNormalizedSpeed()
+    {
+        if (_rb == null || maxSpeed <= 0f) return 0f;
+        return Mathf.Clamp01(_rb.linearVelocity.magnitude / maxSpeed);
+    }
+    
     // Optional: Visualize in editor
     void OnDrawGizmosSelected()
     {
