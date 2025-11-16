@@ -25,11 +25,18 @@ public class EnemyBehavior : MonoBehaviour
     [SerializeField] private Transform player;            // reference to player transform
     [SerializeField] private float captureRadius = 15f;   // distance to trigger capture
     [SerializeField] private float captureDistance = 3f;  // how far to the side of the player
+    [SerializeField] private float captureForwardOffset = 2f; // how far in front of the player to position
     [SerializeField] private float captureDuration = 5f;  // how long to stay captured
     [SerializeField] private float captureRange = 5f;     // range within which to stay next to player
     [SerializeField] private float captureLerpTime = 2f;  // time in seconds to lerp to capture position
     [SerializeField] private float captureStartDelay = 10f; // delay before first capture can happen
     [SerializeField] private float captureCooldown = 30f;   // cooldown after capture ends before next capture
+
+    [Header("Attack")]
+    [SerializeField] private GameObject attackObject;     // object that swings to hit player
+    [SerializeField] private float attackInterval = 1f;   // time between attacks
+    [SerializeField] private float attackSwingTime = 0.5f; // how long the swing takes
+    [SerializeField] private float attackDamage = 10f;    // damage dealt to player
 
     private VehicleController _vehicle;
     private int _currentIndex;
@@ -55,6 +62,13 @@ public class EnemyBehavior : MonoBehaviour
     private float _captureLerpTimer; // tracks lerp progress
     private Vector3 _captureStartOffset; // initial offset when capture starts
 
+    // Attack behavior
+    private float _attackTimer;
+    private bool _isSwinging;
+    private float _swingTimer;
+    private Quaternion _attackStartRotation;
+    private Quaternion _attackEndRotation;
+
     void Awake()
     {
         _vehicle = GetComponent<VehicleController>();
@@ -64,6 +78,20 @@ public class EnemyBehavior : MonoBehaviour
             enabled = false;
         }
         _stuckCheckPosition = transform.position;
+
+        // Initialize attack object rotation
+        if (attackObject != null)
+        {
+            _attackStartRotation = attackObject.transform.localRotation;
+            _attackEndRotation = attackObject.transform.localRotation * Quaternion.Euler(0f, 0f, 180f); // Swing 180 degrees
+            
+            // Set damage on attack collider if it exists
+            EnemyAttackCollider attackCollider = attackObject.GetComponent<EnemyAttackCollider>();
+            if (attackCollider != null)
+            {
+                attackCollider.SetDamage(attackDamage);
+            }
+        }
     }
 
     void FixedUpdate()
@@ -114,6 +142,7 @@ public class EnemyBehavior : MonoBehaviour
         if (_isCapturing)
         {
             ExecuteCaptureBehavior();
+            UpdateAttack();
             return;
         }
 
@@ -242,9 +271,9 @@ public class EnemyBehavior : MonoBehaviour
             return;
         }
 
-        // Calculate the exact target position (directly to the right or left)
+        // Calculate the exact target position (to the side and slightly in front)
         Vector3 sideDirection = _captureOnRight ? player.right : -player.right;
-        Vector3 exactTargetOffset = sideDirection * captureDistance;
+        Vector3 exactTargetOffset = sideDirection * captureDistance + player.forward * captureForwardOffset;
         
         if (!_hasReachedCapturePosition)
         {
@@ -289,5 +318,46 @@ public class EnemyBehavior : MonoBehaviour
 
         // Set vehicle inputs to zero since we're overriding position
         _vehicle.Move(Vector2.zero);
+    }
+
+    private void UpdateAttack()
+    {
+        if (attackObject == null || player == null) return;
+
+        // Only attack when capture is active and we've reached position
+        if (!_isCapturing || !_hasReachedCapturePosition) return;
+
+        // Update attack timer
+        _attackTimer += Time.fixedDeltaTime;
+
+        // Handle active swing
+        if (_isSwinging)
+        {
+            _swingTimer += Time.fixedDeltaTime;
+            float t = Mathf.Clamp01(_swingTimer / attackSwingTime);
+
+            // Calculate direction to player
+            Vector3 directionToPlayer = player.position - attackObject.transform.position;
+            directionToPlayer.Normalize();
+            
+            // Create rotation that looks at player, then rotate 180 degrees around forward axis
+            Quaternion lookAtPlayer = Quaternion.LookRotation(directionToPlayer);
+            Quaternion swing = Quaternion.Euler(t * 180f, 0f, 0f); // Rotate 180 degrees
+            attackObject.transform.rotation = lookAtPlayer * swing;
+
+            // End swing and reset
+            if (t >= 1f)
+            {
+                _isSwinging = false;
+                _attackTimer = 0f;
+                attackObject.transform.localRotation = Quaternion.identity;
+            }
+        }
+        // Start new swing if interval has passed
+        else if (_attackTimer >= attackInterval)
+        {
+            _isSwinging = true;
+            _swingTimer = 0f;
+        }
     }
 }
