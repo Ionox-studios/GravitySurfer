@@ -28,6 +28,8 @@ public class VehicleController : MonoBehaviour
     private Rigidbody _rb;
     private Vector2 _moveInput; // Store input for FixedUpdate
     private bool _isGrounded; // Track if we detected a surface this frame
+    public Animator animator; // AL
+    public Animator SlashEffect; //AL
     
     void Awake()
     {
@@ -85,6 +87,9 @@ public class VehicleController : MonoBehaviour
         
         // Apply jump force in the object's local up direction
         _rb.AddForce(transform.up * jumpForce, ForceMode.Impulse);
+        if (animator != null) // AL
+            animator.SetTrigger("Jump"); // AL
+            SlashEffect.SetTrigger("Kick"); // AL
         
         Debug.Log("Jump!");
     }
