@@ -16,6 +16,7 @@ public class PlayerHealth : MonoBehaviour
     public event Action<float, float> OnHealthChanged;
 
     private bool isDead = false;
+    public Animator animator; // AL, if i want to add effects: public Animator SlashEffect;
 
     void Awake()
     {
@@ -44,6 +45,10 @@ public class PlayerHealth : MonoBehaviour
         OnHealthChanged?.Invoke(currentHealth, maxHealth);
 
         Debug.Log($"Player took {damage} damage. Current health: {currentHealth}/{maxHealth}");
+
+        if (animator != null) // AL
+            animator.SetTrigger("Stun"); // AL
+    //      SlashEffect.SetTrigger("Kick"); // AL
 
         if (currentHealth <= 0f)
         {

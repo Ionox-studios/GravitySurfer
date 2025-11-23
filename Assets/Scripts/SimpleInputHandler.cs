@@ -13,6 +13,7 @@ public class SimpleInputHandler : MonoBehaviour
     
     private InputAction _moveAction;
     private InputAction _jumpAction;
+    private InputAction _attackAction;
     private Vector2 _currentMoveInput;
     
     void Start()
@@ -70,16 +71,36 @@ public class SimpleInputHandler : MonoBehaviour
         playerActionMap.Enable();
         
         Debug.Log("SimpleInputHandler initialized successfully!");
-    }
-    
+       
+
+        // Find the Attack action
+        _attackAction = playerActionMap.FindAction("Attack");
+
+        if (_attackAction != null)
+        {
+            _attackAction.performed += OnAttack;
+        }
+        else
+        {
+            Debug.LogWarning("SimpleInputHandler: Could not find 'Attack' action!");
+        }
+    }  
+
     private void OnJump(UnityEngine.InputSystem.InputAction.CallbackContext context)
     {
         if (vehicleController != null)
         {
             vehicleController.Jump();
         }
+    }    
+    private void OnAttack(InputAction.CallbackContext context)
+    {
+        if (vehicleController != null)
+        {
+            vehicleController.Attack();
+        }
     }
-    
+  /////  
     void Update()
     {
         if (_moveAction == null) return;
@@ -116,6 +137,10 @@ public class SimpleInputHandler : MonoBehaviour
         if (inputActions != null)
         {
             inputActions.Disable();
+        }
+        if (_attackAction != null)
+        {
+            _attackAction.performed -= OnAttack;
         }
     }
 }

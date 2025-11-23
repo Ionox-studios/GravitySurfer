@@ -8,7 +8,7 @@ public class InputHandler : MonoBehaviour
 
     [SerializeField] private InputActionAsset inputActions;
     
-    private InputAction _moveAction, _lookAction, _jumpAction;
+    private InputAction _moveAction, _lookAction, _jumpAction, _attackAction;
     
     void Start()
     {
@@ -19,6 +19,7 @@ public class InputHandler : MonoBehaviour
         _moveAction = playerActionMap.FindAction("Move");
         _lookAction = playerActionMap.FindAction("Look");
         _jumpAction = playerActionMap.FindAction("Jump");
+        _attackAction = playerActionMap.FindAction("Attack"); // AL
         
         // Enable the action map
         playerActionMap.Enable();

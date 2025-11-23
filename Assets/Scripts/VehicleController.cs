@@ -89,9 +89,19 @@ public class VehicleController : MonoBehaviour
         _rb.AddForce(transform.up * jumpForce, ForceMode.Impulse);
         if (animator != null) // AL
             animator.SetTrigger("Jump"); // AL
-            SlashEffect.SetTrigger("Kick"); // AL
+    //        SlashEffect.SetTrigger("Kick"); // AL
         
         Debug.Log("Jump!");
+    }
+
+    public void Attack() //AL
+    {
+
+        if (animator != null) // AL
+            animator.SetTrigger("isAttack1"); // AL
+            SlashEffect.SetTrigger("Kick"); // AL
+        
+        Debug.Log("Attack!");
     }
     
     /// <summary>
