@@ -96,7 +96,16 @@ public class GameController : MonoBehaviour
             // Check if player fell below Y = -100
             if (player != null && player.position.y < -100f)
             {
-                GameOver();
+                // Try to respawn instead of game over
+                RespawnManager respawnManager = player.GetComponent<RespawnManager>();
+                if (respawnManager != null)
+                {
+                    respawnManager.Respawn();
+                }
+                else
+                {
+                    GameOver();
+                }
             }
         }
     }

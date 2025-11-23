@@ -18,6 +18,8 @@ public class WaveRoadMesh : MonoBehaviour
     
     [Header("UV Settings")]
     [SerializeField] private float uvTileLength = 10f;
+
+    public SplineRoad SplineRoad => splineRoad;
     
     private Mesh mesh;
     private Vector3[] baseVertices; // Original vertex positions without waves

@@ -37,6 +37,10 @@ public class SimpleSurfaceAligner : MonoBehaviour
     
     private Rigidbody _rb;
     private Vector2 _moveInput; // Store input for FixedUpdate
+
+    // Public properties for other scripts to access surface state
+    public bool IsSurfaceDetected { get; private set; }
+    public RaycastHit LastSurfaceHit { get; private set; }
     
     void Awake()
     {
@@ -147,6 +151,10 @@ public class SimpleSurfaceAligner : MonoBehaviour
         
         if (Physics.Raycast(rayStart, rayDirection, out RaycastHit hit, raycastDistance, groundLayer))
         {
+            // Update public state
+            IsSurfaceDetected = true;
+            LastSurfaceHit = hit;
+
             // We hit a surface! Get its normal
             Vector3 surfaceNormal = hit.normal;
             
@@ -175,6 +183,9 @@ public class SimpleSurfaceAligner : MonoBehaviour
         }
         else
         {
+            // Update public state
+            IsSurfaceDetected = false;
+
             // No surface detected - apply world down bias
             ApplyWorldDownBias();
             

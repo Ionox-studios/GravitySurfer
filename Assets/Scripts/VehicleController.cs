@@ -74,7 +74,7 @@ public class VehicleController : MonoBehaviour
         // Debug to see if input is being received
         if (input.magnitude > 0.1f)
         {
-            Debug.Log($"Move input received: {input}");
+            //Debug.Log($"Move input received: {input}");
         }
     }
     
