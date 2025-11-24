@@ -12,6 +12,7 @@ public class GameController : MonoBehaviour
     
     [Header("UI References")]
     public TextMeshProUGUI timerText;
+    public TextMeshProUGUI lapText;
     public GameObject startPanel;
     public GameObject gameOverPanel;
     public GameObject winPanel;
@@ -20,6 +21,10 @@ public class GameController : MonoBehaviour
     [Header("Player Reference")]
     public Transform player;
 
+    [Header("Lap System")]
+    [SerializeField] private int totalLaps = 3;
+    [SerializeField] private LapFeatures[] lapFeatures;
+    
     private InputAction _quitAction;
     private InputAction _startAction;
     private InputAction _restartAction;
@@ -27,6 +32,7 @@ public class GameController : MonoBehaviour
     private float timer = 0f;
     private bool gameStarted = false;
     private bool gameEnded = false;
+    private int currentLap = 0;
 
     void Awake()
     {
@@ -81,6 +87,10 @@ public class GameController : MonoBehaviour
         if (winPanel != null) winPanel.SetActive(false);
         if (deathPanel != null) deathPanel.SetActive(false);
         
+        // Initialize lap system
+        currentLap = 0;
+        UpdateLapDisplay();
+        
         // Pause time until game starts
         Time.timeScale = 0f;
     }
@@ -131,6 +141,13 @@ public class GameController : MonoBehaviour
         gameStarted = true;
         if (startPanel != null) startPanel.SetActive(false);
         Time.timeScale = 1f;
+        
+        // Start at lap 1
+        currentLap = 1;
+        UpdateLapDisplay();
+        
+        // Activate lap 1 features
+        ActivateLapFeatures(1);
     }
 
     void UpdateTimerDisplay()
@@ -142,6 +159,55 @@ public class GameController : MonoBehaviour
         int milliseconds = Mathf.FloorToInt((timer * 100f) % 100f);
         
         timerText.text = string.Format("{0:00}:{1:00}:{2:00}", minutes, seconds, milliseconds);
+    }
+
+    void UpdateLapDisplay()
+    {
+        if (lapText == null) return;
+        
+        lapText.text = string.Format("Lap {0}/{1}", currentLap, totalLaps);
+    }
+
+    public void IncrementLap()
+    {
+        if (gameEnded) return;
+        
+        currentLap++;
+        UpdateLapDisplay();
+        
+        Debug.Log($"Lap {currentLap}/{totalLaps}");
+        
+        // Check if race is complete
+        if (currentLap > totalLaps)
+        {
+            Win();
+        }
+        else
+        {
+            // Activate features for the new lap
+            ActivateLapFeatures(currentLap);
+        }
+    }
+
+    void ActivateLapFeatures(int lapNumber)
+    {
+        if (lapFeatures == null || lapFeatures.Length == 0) return;
+        
+        // Deactivate all lap features first
+        foreach (var lapFeature in lapFeatures)
+        {
+            if (lapFeature != null)
+            {
+                lapFeature.Deactivate();
+            }
+        }
+        
+        // Activate the features for the current lap (lapNumber is 1-indexed)
+        if (lapNumber > 0 && lapNumber <= lapFeatures.Length)
+        {
+            lapFeatures[lapNumber - 1]?.Activate();
+            Debug.Log($"Activated features for lap {lapNumber}");
+        }
     }
 
     void GameOver()
