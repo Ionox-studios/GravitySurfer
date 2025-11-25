@@ -88,6 +88,7 @@ public class EnemyBehavior : MonoBehaviour
     private float _swingTimer;
     private Quaternion _attackStartRotation;
     private Quaternion _attackEndRotation;
+    public Animator animator;
 
     // Respawn tracking
     private Vector3 _lastNodePosition; // Position of last waypoint passed
@@ -477,6 +478,7 @@ public class EnemyBehavior : MonoBehaviour
         // Only attack when capture is active and we've reached position
         if (!_isCapturing || !_hasReachedCapturePosition) return;
 
+
         // Update attack timer
         _attackTimer += Time.fixedDeltaTime;
 
@@ -494,6 +496,10 @@ public class EnemyBehavior : MonoBehaviour
             Quaternion lookAtPlayer = Quaternion.LookRotation(directionToPlayer);
             Quaternion swing = Quaternion.Euler(t * 180f, 0f, 0f); // Rotate 180 degrees
             attackObject.transform.rotation = lookAtPlayer * swing;
+
+        if (animator != null) // AL
+            animator.SetTrigger("Attack"); // AL
+
 
             // End swing and reset (but stay locked on player if no hit)
             if (t >= 1f)
