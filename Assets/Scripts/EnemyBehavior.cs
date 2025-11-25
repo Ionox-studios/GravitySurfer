@@ -45,6 +45,12 @@ public class EnemyBehavior : MonoBehaviour
     [SerializeField] private float maxHealth = 100f;
     [SerializeField] private float currentHealth;
 
+    [Header("Respawn")]
+    [SerializeField] private float respawnYThreshold = 5f; // If below this Y, respawn
+    [SerializeField] private float respawnDamage = 20f;
+    [SerializeField] private int maxStuckCount = 3; // How many times stuck before respawn
+    [SerializeField] private float stuckCountResetTime = 15f; // Time window to count stuck events
+
     private VehicleController _vehicle;
     private int _currentIndex;
     private int _currentLap;
@@ -83,15 +89,32 @@ public class EnemyBehavior : MonoBehaviour
     private Quaternion _attackStartRotation;
     private Quaternion _attackEndRotation;
 
+    // Respawn tracking
+    private Vector3 _lastNodePosition; // Position of last waypoint passed
+    private int _stuckCount; // Counts how many times stuck in time window
+    private float _stuckCountTimer; // Timer for stuck count window
+    private Rigidbody _rb;
+
     void Awake()
     {
         _vehicle = GetComponent<VehicleController>();
+        _rb = GetComponent<Rigidbody>();
+        
         if (waypoints == null || waypoints.Length == 0)
         {
             Debug.LogError("EnemyRacerAI: No waypoints assigned!", this);
             enabled = false;
         }
+        
         _stuckCheckPosition = transform.position;
+        
+        // Initialize respawn tracking
+        if (waypoints != null && waypoints.Length > 0)
+        {
+            _lastNodePosition = waypoints[0].position;
+        }
+        _stuckCount = 0;
+        _stuckCountTimer = 0f;
 
         // Initialize health
         currentHealth = maxHealth;
@@ -116,6 +139,9 @@ public class EnemyBehavior : MonoBehaviour
     void FixedUpdate()
     {
         if (waypoints == null || waypoints.Length == 0) return;
+
+        // Check for respawn conditions
+        CheckRespawnConditions();
 
         // Track game time
         _gameTimer += Time.fixedDeltaTime;
@@ -180,12 +206,24 @@ public class EnemyBehavior : MonoBehaviour
                 
                 if (distanceMoved < stuckThreshold)
                 {
-                    // We're stuck! Start unstuck routine
+                    // We're stuck! Increment stuck counter
+                    _stuckCount++;
+                    Debug.Log($"Enemy stuck! Count: {_stuckCount}/{maxStuckCount}");
+                    
+                    // Check if we've been stuck too many times
+                    if (_stuckCount >= maxStuckCount)
+                    {
+                        RespawnEnemy();
+                        _stuckCount = 0;
+                        _stuckCountTimer = 0f;
+                        return;
+                    }
+                    
+                    // Start unstuck routine
                     _isUnsticking = true;
                     _unstuckPhase = 0;
                     _unstuckTimer = 0f;
                     _randomTurnDirection = Random.Range(0, 2) == 0 ? -1f : 1f; // Random left or right
-                    Debug.Log("Enemy stuck! Starting unstuck routine.");
                 }
                 
                 // Reset check timer and position
@@ -232,6 +270,7 @@ public class EnemyBehavior : MonoBehaviour
                     // End unstuck routine
                     _isUnsticking = false;
                     _stuckTimer = 0f;
+                    _stuckCountTimer = 0f; // Reset timer after successful unstuck
                     Debug.Log("Enemy unstuck routine complete.");
                 }
                 break;
@@ -249,6 +288,9 @@ public class EnemyBehavior : MonoBehaviour
 
         if (distanceXZ < waypointRadius)
         {
+            // Save this node position before advancing
+            _lastNodePosition = waypoints[_currentIndex].position;
+            
             _currentIndex++;
             
             // Loop waypoints and increment lap
@@ -579,6 +621,61 @@ public class EnemyBehavior : MonoBehaviour
         currentHealth = Mathf.Clamp(currentHealth, 0f, maxHealth);
 
         Debug.Log($"Enemy healed {amount}. Current health: {currentHealth}/{maxHealth}");
+    }
+
+    /// <summary>
+    /// Checks if enemy should respawn (fell off or stuck)
+    /// </summary>
+    private void CheckRespawnConditions()
+    {
+        // Check if fell below Y threshold
+        if (transform.position.y < respawnYThreshold)
+        {
+            RespawnEnemy();
+            return;
+        }
+
+        // Update stuck count timer and reset if time window expired
+        if (_stuckCount > 0)
+        {
+            _stuckCountTimer += Time.fixedDeltaTime;
+            
+            if (_stuckCountTimer >= stuckCountResetTime)
+            {
+                // Time window expired, reset stuck count
+                _stuckCount = 0;
+                _stuckCountTimer = 0f;
+                Debug.Log("Stuck count reset (time window expired)");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Respawns the enemy at their last node position and deals damage
+    /// </summary>
+    private void RespawnEnemy()
+    {
+        Debug.Log($"Enemy respawning at last node position: {_lastNodePosition}");
+        
+        // Move to last node position
+        transform.position = _lastNodePosition + Vector3.up * 2f; // Slightly above to avoid clipping
+        transform.rotation = Quaternion.identity;
+        
+        // Reset velocity
+        if (_rb != null)
+        {
+            _rb.linearVelocity = Vector3.zero;
+            _rb.angularVelocity = Vector3.zero;
+        }
+        
+        // Take damage
+        TakeDamage(respawnDamage);
+        
+        // Reset stuck counters
+        _stuckCount = 0;
+        _stuckCountTimer = 0f;
+        
+        Debug.Log($"Enemy respawned! Took {respawnDamage} damage. Health: {currentHealth}/{maxHealth}");
     }
 
     private void Die()

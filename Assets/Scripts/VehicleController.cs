@@ -152,11 +152,13 @@ public class VehicleController : MonoBehaviour
             {
                 enemiesHit++;
                 
-                // Calculate direction from player to enemy for push force
-                Vector3 pushDirection = (col.transform.position - transform.position).normalized;
+                // Calculate direction from player to enemy (horizontal component only)
+                Vector3 toEnemy = col.transform.position - transform.position;
+                Vector3 horizontalDirection = new Vector3(toEnemy.x, 0f, toEnemy.z).normalized;
+                Vector3 pushDirection = horizontalDirection * attackForce;
                 
                 // Apply damage with push force
-                enemy.TakeDamage(attackDamage, pushDirection * attackForce);
+                enemy.TakeDamage(attackDamage, pushDirection);
                 
                 Debug.Log($"Attack hit enemy: {col.gameObject.name} for {attackDamage} damage!");
             }
