@@ -35,7 +35,8 @@ public class PlayerHealth : MonoBehaviour
     /// Takes damage and reduces health. Call this from damage sources.
     /// </summary>
     /// <param name="damage">Amount of damage to take</param>
-    public void TakeDamage(float damage)
+    /// <param name="pushDirection">Optional direction to push the player (will be applied as force)</param>
+    public void TakeDamage(float damage, Vector3? pushDirection = null)
     {
         if (isDead) return;
 
@@ -49,6 +50,17 @@ public class PlayerHealth : MonoBehaviour
         if (animator != null) // AL
             animator.SetTrigger("Stun"); // AL
     //      SlashEffect.SetTrigger("Kick"); // AL
+
+        // Apply push force if provided
+        if (pushDirection.HasValue)
+        {
+            Rigidbody rb = GetComponent<Rigidbody>();
+            if (rb != null)
+            {
+                rb.AddForce(pushDirection.Value, ForceMode.Impulse);
+                Debug.Log($"Applied push force: {pushDirection.Value}");
+            }
+        }
 
         if (currentHealth <= 0f)
         {

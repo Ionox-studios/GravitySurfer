@@ -35,8 +35,18 @@ public class SimpleSurfaceAligner : MonoBehaviour
     [SerializeField] private float hoverForce = 50f; // Spring force to maintain height
     [SerializeField] private float hoverDamping = 5f; // Dampening for hover oscillation
     
+    [Header("Attack")]
+    [SerializeField] private float attackRange = 5f; // Radius of sphere cast for attack
+    [SerializeField] private float attackDelay = 0.5f; // Delay before attack executes
+    [SerializeField] private float attackDamage = 25f; // Damage dealt to enemies
+    [SerializeField] private float attackForce = 500f; // Force applied to hit enemies
+    [SerializeField] private LayerMask enemyLayer = -1; // Layer mask for enemies
+    [SerializeField] private bool showAttackDebug = true; // Show attack range visualization
+    
     private Rigidbody _rb;
     private Vector2 _moveInput; // Store input for FixedUpdate
+    private bool _attackPending = false; // Is an attack queued?
+    private float _attackTimer = 0f; // Time until attack executes
 
     // Public properties for other scripts to access surface state
     public bool IsSurfaceDetected { get; private set; }
@@ -70,6 +80,17 @@ public class SimpleSurfaceAligner : MonoBehaviour
         
         // Handle surface alignment
         AlignToSurface();
+        
+        // Update attack timer if attack is pending
+        if (_attackPending)
+        {
+            _attackTimer -= Time.fixedDeltaTime;
+            if (_attackTimer <= 0f)
+            {
+                ExecuteAttack();
+                _attackPending = false;
+            }
+        }
     }
     
     /// <summary>
@@ -97,6 +118,58 @@ public class SimpleSurfaceAligner : MonoBehaviour
         _rb.AddForce(transform.up * jumpForce, ForceMode.Impulse);
         
         Debug.Log("Jump!");
+    }
+    
+    /// <summary>
+    /// Attack - initiates attack with delay, then sphere casts for enemies
+    /// </summary>
+    public void Attack()
+    {
+        if (_attackPending) return; // Already have an attack pending
+        
+        // Queue the attack
+        _attackPending = true;
+        _attackTimer = attackDelay;
+        
+        Debug.Log($"Attack queued! Will execute in {attackDelay} seconds");
+    }
+    
+    /// <summary>
+    /// Execute the attack - sphere cast for enemies and damage them
+    /// </summary>
+    private void ExecuteAttack()
+    {
+        // Perform sphere cast from player position
+        Collider[] hitColliders = Physics.OverlapSphere(transform.position, attackRange, enemyLayer);
+        
+        int enemiesHit = 0;
+        
+        foreach (Collider col in hitColliders)
+        {
+            // Skip self
+            if (col.gameObject == gameObject) continue;
+            
+            // Try to get EnemyBehavior component
+            EnemyBehavior enemy = col.GetComponent<EnemyBehavior>();
+            
+            if (enemy != null)
+            {
+                enemiesHit++;
+                
+                // Calculate direction from player to enemy for push force
+                Vector3 pushDirection = (col.transform.position - transform.position).normalized;
+                
+                // Apply damage with push force
+                enemy.TakeDamage(attackDamage, pushDirection * attackForce);
+                
+                Debug.Log($"Attack hit enemy: {col.gameObject.name} for {attackDamage} damage!");
+            }
+        }
+        
+        if (showAttackDebug)
+        {
+            Debug.Log($"Attack executed! Hit {enemiesHit} enemies in range {attackRange}");
+        }
     }
     
     /// <summary>
@@ -309,5 +382,12 @@ public class SimpleSurfaceAligner : MonoBehaviour
         // Show raycast direction
         Gizmos.color = Color.cyan;
         Gizmos.DrawRay(transform.position, -transform.up * raycastDistance);
+        
+        // Show attack range
+        if (showAttackDebug)
+        {
+            Gizmos.color = _attackPending ? Color.red : new Color(1f, 0.5f, 0f, 0.3f);
+            Gizmos.DrawWireSphere(transform.position, attackRange);
+        }
     }
 }

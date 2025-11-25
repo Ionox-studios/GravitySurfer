@@ -31,15 +31,23 @@ public class EnemyBehavior : MonoBehaviour
     [SerializeField] private float captureLerpTime = 2f;  // time in seconds to lerp to capture position
     [SerializeField] private float captureStartDelay = 10f; // delay before first capture can happen
     [SerializeField] private float captureCooldown = 30f;   // cooldown after capture ends before next capture
+    [SerializeField] private float releaseDistance = 15f;  // how far to move away after hitting player
+    [SerializeField] private float releaseWaitTime = 2f;   // how long to wait after taking damage before re-approaching
 
     [Header("Attack")]
     [SerializeField] private GameObject attackObject;     // object that swings to hit player
     [SerializeField] private float attackInterval = 1f;   // time between attacks
     [SerializeField] private float attackSwingTime = 0.5f; // how long the swing takes
     [SerializeField] private float attackDamage = 10f;    // damage dealt to player
+    [SerializeField] private float attackPushForce = 10f; // push force applied to player
+
+    [Header("Health")]
+    [SerializeField] private float maxHealth = 100f;
+    [SerializeField] private float currentHealth;
 
     private VehicleController _vehicle;
     private int _currentIndex;
+    private int _currentLap;
     private float _currentSteer;
     private float _currentThrottle;
 
@@ -61,6 +69,12 @@ public class EnemyBehavior : MonoBehaviour
     private bool _hasReachedCapturePosition; // tracks if enemy has lerped to exact position
     private float _captureLerpTimer; // tracks lerp progress
     private Vector3 _captureStartOffset; // initial offset when capture starts
+    private bool _isReleasing; // true when enemy is moving away after hit
+    private Vector3 _releaseTargetPosition; // where to move to when releasing
+    private float _releaseTimer; // tracks time spent in release state
+    private bool _isWaitingAfterDamage; // true when waiting after taking damage (no target position)
+    private Vector3 _capturePlayerLockPosition; // player's local position when enemy locked on
+    private float _capturePlayerLockLateral; // player's lateral position when locked
 
     // Attack behavior
     private float _attackTimer;
@@ -79,17 +93,22 @@ public class EnemyBehavior : MonoBehaviour
         }
         _stuckCheckPosition = transform.position;
 
+        // Initialize health
+        currentHealth = maxHealth;
+
         // Initialize attack object rotation
         if (attackObject != null)
         {
             _attackStartRotation = attackObject.transform.localRotation;
             _attackEndRotation = attackObject.transform.localRotation * Quaternion.Euler(0f, 0f, 180f); // Swing 180 degrees
             
-            // Set damage on attack collider if it exists
+            // Set damage and push force on attack collider if it exists
             EnemyAttackCollider attackCollider = attackObject.GetComponent<EnemyAttackCollider>();
             if (attackCollider != null)
             {
                 attackCollider.SetDamage(attackDamage);
+                attackCollider.SetPushForce(attackPushForce);
+                attackCollider.SetOnHitCallback(OnPlayerHit);
             }
         }
     }
@@ -132,6 +151,10 @@ public class EnemyBehavior : MonoBehaviour
                     // Store initial offset
                     _captureStartOffset = transform.position - player.position;
                     _captureOffset = _captureStartOffset;
+                    
+                    // Lock the player's current position
+                    _capturePlayerLockPosition = player.position;
+                    _capturePlayerLockLateral = 0f;
                     
                     Debug.Log($"Enemy capturing player! Side: {(_captureOnRight ? "Right" : "Left")}");
                 }
@@ -226,7 +249,16 @@ public class EnemyBehavior : MonoBehaviour
 
         if (distanceXZ < waypointRadius)
         {
-            _currentIndex = (_currentIndex + 1) % waypoints.Length;
+            _currentIndex++;
+            
+            // Loop waypoints and increment lap
+            if (_currentIndex >= waypoints.Length)
+            {
+                _currentIndex = 0;
+                _currentLap++;
+                Debug.Log($"Enemy completed lap {_currentLap}");
+            }
+            
             target = waypoints[_currentIndex];
             toTarget = target.position - transform.position;
         }
@@ -267,13 +299,81 @@ public class EnemyBehavior : MonoBehaviour
         {
             _isCapturing = false;
             _captureCooldownTimer = captureCooldown; // Start cooldown
+            
+            // Find closest node ahead and credit skipped nodes
+            FindClosestForwardNode();
+            
             Debug.Log("Capture duration complete. Starting 30s cooldown.");
             return;
         }
 
+        // Handle release and re-approach
+        if (_isReleasing)
+        {
+            _releaseTimer += Time.fixedDeltaTime;
+            
+            // If waiting after taking damage (no target position, just wait)
+            if (_isWaitingAfterDamage)
+            {
+                if (_releaseTimer >= releaseWaitTime)
+                {
+                    // Wait complete, reset and prepare to re-approach
+                    _isReleasing = false;
+                    _isWaitingAfterDamage = false;
+                    _hasReachedCapturePosition = false;
+                    _captureLerpTimer = 0f;
+                    _captureStartOffset = transform.position - player.position;
+                    Debug.Log("Enemy finished waiting after damage and ready to re-approach!");
+                }
+                else
+                {
+                    // Just wait, don't move (vehicle inputs already set to zero)
+                    _vehicle.Move(Vector2.zero);
+                }
+            }
+            else
+            {
+                // Move away from player to release position (after landing a hit)
+                Vector3 toTarget = _releaseTargetPosition - transform.position;
+                float distance = toTarget.magnitude;
+                
+                if (distance < waypointRadius)
+                {
+                    // Reached release position, reset and prepare to re-approach
+                    _isReleasing = false;
+                    _hasReachedCapturePosition = false;
+                    _captureLerpTimer = 0f;
+                    _captureStartOffset = transform.position - player.position;
+                    Debug.Log("Enemy released player and ready to re-approach!");
+                }
+                else
+                {
+                    // Navigate to release position using next node as forward reference
+                    Transform releaseNextNode = waypoints[_currentIndex];
+                    Vector3 toReleaseNode = releaseNextNode.position - transform.position;
+                    Vector3 nodeForward = Vector3.ProjectOnPlane(toReleaseNode, transform.up).normalized;
+                    
+                    Vector3 flatToTarget = Vector3.ProjectOnPlane(toTarget, transform.up).normalized;
+                    float signedAngle = Vector3.SignedAngle(nodeForward, flatToTarget, transform.up);
+                    float steer = Mathf.Clamp(signedAngle / maxSteerAngle, -1f, 1f);
+                    
+                    _vehicle.Move(new Vector2(steer, baseThrottle));
+                }
+            }
+            return;
+        }
+
+        // Get the next waypoint to determine forward direction
+        Transform nextNode = waypoints[_currentIndex];
+        Vector3 toNextNode = nextNode.position - player.position;
+        Vector3 pathForward = Vector3.ProjectOnPlane(toNextNode, transform.up).normalized;
+        
+        // Calculate right direction relative to the path
+        Vector3 pathRight = Vector3.Cross(transform.up, pathForward).normalized;
+        
         // Calculate the exact target position (to the side and slightly in front)
-        Vector3 sideDirection = _captureOnRight ? player.right : -player.right;
-        Vector3 exactTargetOffset = sideDirection * captureDistance + player.forward * captureForwardOffset;
+        Vector3 sideDirection = _captureOnRight ? pathRight : -pathRight;
+        Vector3 exactTargetOffset = sideDirection * captureDistance + pathForward * captureForwardOffset;
         
         if (!_hasReachedCapturePosition)
         {
@@ -287,34 +387,42 @@ public class EnemyBehavior : MonoBehaviour
             {
                 _captureOffset = exactTargetOffset;
                 _hasReachedCapturePosition = true;
+                // Lock the enemy's world position (laterally)
+                _capturePlayerLockPosition = transform.position;
                 Debug.Log("Enemy reached exact capture position!");
             }
         }
         else
         {
-            // Now locked at exact position, allow player to move left/right within range
-            Vector3 playerRight = player.right;
-            float lateralOffset = Vector3.Dot(_captureOffset, playerRight);
+            // Calculate the lateral offset by projecting enemy's locked position onto path's right axis
+            Vector3 playerToEnemyLock = _capturePlayerLockPosition - player.position;
             
-            // Clamp the lateral offset to captureRange
-            lateralOffset = Mathf.Clamp(lateralOffset, -captureRange, captureRange);
+            // Remove the forward component to get pure lateral offset (relative to path)
+            Vector3 pathForwardComponent = pathForward * Vector3.Dot(playerToEnemyLock, pathForward);
+            Vector3 lateralOffset = playerToEnemyLock - pathForwardComponent;
             
-            // Get forward and up components (locked to player)
-            Vector3 playerForward = player.forward;
-            Vector3 playerUp = player.up;
+            // Get the lateral distance (relative to path right)
+            float lateralDistance = lateralOffset.magnitude * Mathf.Sign(Vector3.Dot(lateralOffset, pathRight));
             
-            float forwardOffset = Vector3.Dot(_captureOffset, playerForward);
-            float upOffset = Vector3.Dot(_captureOffset, playerUp);
+            // Only adjust if beyond captureRange
+            if (Mathf.Abs(lateralDistance) > captureRange)
+            {
+                // Clamp to captureRange and update the locked position
+                float clampedDistance = Mathf.Sign(lateralDistance) * captureRange;
+                Vector3 newLateralOffset = pathRight * clampedDistance;
+                _capturePlayerLockPosition = player.position + newLateralOffset + pathForwardComponent;
+                lateralDistance = clampedDistance;
+            }
             
-            // Reconstruct the clamped offset
-            _captureOffset = playerRight * lateralOffset + playerForward * forwardOffset + playerUp * upOffset;
+            // Position enemy at the locked lateral position, but always match path's forward offset
+            _captureOffset = pathRight * lateralDistance + pathForward * captureForwardOffset;
         }
         
         // Set position directly locked to player
         transform.position = player.position + _captureOffset;
         
-        // Match player's rotation
-        transform.rotation = player.rotation;
+        // Orient enemy to face along the path direction
+        transform.rotation = Quaternion.LookRotation(pathForward, transform.up);
 
         // Set vehicle inputs to zero since we're overriding position
         _vehicle.Move(Vector2.zero);
@@ -345,12 +453,13 @@ public class EnemyBehavior : MonoBehaviour
             Quaternion swing = Quaternion.Euler(t * 180f, 0f, 0f); // Rotate 180 degrees
             attackObject.transform.rotation = lookAtPlayer * swing;
 
-            // End swing and reset
+            // End swing and reset (but stay locked on player if no hit)
             if (t >= 1f)
             {
                 _isSwinging = false;
                 _attackTimer = 0f;
                 attackObject.transform.localRotation = Quaternion.identity;
+                // Note: We do NOT release here - only release when OnPlayerHit() is called
             }
         }
         // Start new swing if interval has passed
@@ -359,5 +468,140 @@ public class EnemyBehavior : MonoBehaviour
             _isSwinging = true;
             _swingTimer = 0f;
         }
+    }
+
+    /// <summary>
+    /// Finds the closest waypoint ahead of the enemy after attack ends.
+    /// Credits all skipped nodes and updates lap count if necessary.
+    /// </summary>
+    private void FindClosestForwardNode()
+    {
+        if (waypoints == null || waypoints.Length == 0) return;
+
+        float closestDistance = float.MaxValue;
+        int closestIndex = _currentIndex;
+
+        // Check all waypoints to find the closest one
+        for (int i = 0; i < waypoints.Length; i++)
+        {
+            float distance = Vector3.Distance(transform.position, waypoints[i].position);
+            if (distance < closestDistance)
+            {
+                closestDistance = distance;
+                closestIndex = i;
+            }
+        }
+
+        // Calculate how many nodes we're skipping
+        int nodesSkipped = 0;
+        int startIndex = _currentIndex;
+        
+        // Count nodes from current position to new position (going forward)
+        if (closestIndex >= _currentIndex)
+        {
+            // Simple case: closest is ahead in same lap
+            nodesSkipped = closestIndex - _currentIndex;
+        }
+        else
+        {
+            // Wrapped around: we've crossed the lap boundary
+            nodesSkipped = (waypoints.Length - _currentIndex) + closestIndex;
+            _currentLap++;
+            Debug.Log($"Enemy crossed lap boundary during attack! Now on lap {_currentLap}");
+        }
+
+        // Update current index to the closest node
+        _currentIndex = closestIndex;
+
+        Debug.Log($"Enemy resumed at node {_currentIndex}, skipped {nodesSkipped} nodes");
+    }
+
+    /// <summary>
+    /// Called when the enemy successfully hits the player
+    /// </summary>
+    private void OnPlayerHit()
+    {
+        if (!_isCapturing || player == null) return;
+
+        // Calculate release position (move away from player)
+        Vector3 awayDirection = (transform.position - player.position).normalized;
+        _releaseTargetPosition = transform.position + awayDirection * releaseDistance;
+        
+        _isReleasing = true;
+        Debug.Log("Enemy hit player! Releasing and will re-approach if time remains.");
+    }
+
+    /// <summary>
+    /// Takes damage and reduces health. Call this from damage sources.
+    /// </summary>
+    /// <param name="damage">Amount of damage to take</param>
+    /// <param name="pushDirection">Optional direction to push the enemy (will be applied as force)</param>
+    public void TakeDamage(float damage, Vector3? pushDirection = null)
+    {
+        currentHealth -= damage;
+        currentHealth = Mathf.Clamp(currentHealth, 0f, maxHealth);
+
+        Debug.Log($"Enemy took {damage} damage. Current health: {currentHealth}/{maxHealth}");
+
+        // Apply push force if provided
+        if (pushDirection.HasValue)
+        {
+            Rigidbody rb = GetComponent<Rigidbody>();
+            if (rb != null)
+            {
+                rb.AddForce(pushDirection.Value, ForceMode.Impulse);
+                Debug.Log($"Applied push force to enemy: {pushDirection.Value}");
+            }
+        }
+
+        // Release close lock and wait if capturing (pushed by damage force)
+        if (_isCapturing && player != null)
+        {
+            _isReleasing = true;
+            _isWaitingAfterDamage = true;
+            _releaseTimer = 0f;
+            Debug.Log("Enemy took damage while capturing! Waiting 2 seconds before re-approaching.");
+        }
+
+        if (currentHealth <= 0f)
+        {
+            Die();
+        }
+    }
+
+    /// <summary>
+    /// Heals the enemy by the specified amount
+    /// </summary>
+    /// <param name="amount">Amount to heal</param>
+    public void Heal(float amount)
+    {
+        currentHealth += amount;
+        currentHealth = Mathf.Clamp(currentHealth, 0f, maxHealth);
+
+        Debug.Log($"Enemy healed {amount}. Current health: {currentHealth}/{maxHealth}");
+    }
+
+    private void Die()
+    {
+        Debug.Log("Enemy died!");
+        
+        // Destroy the enemy game object
+        Destroy(gameObject);
+    }
+
+    /// <summary>
+    /// Returns the current health value
+    /// </summary>
+    public float GetCurrentHealth()
+    {
+        return currentHealth;
+    }
+
+    /// <summary>
+    /// Returns the maximum health value
+    /// </summary>
+    public float GetMaxHealth()
+    {
+        return maxHealth;
     }
 }
