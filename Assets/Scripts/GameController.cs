@@ -3,6 +3,10 @@ using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using TMPro;
 
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
+
 public class GameController : MonoBehaviour
 {
     public static GameController Instance;
@@ -269,3 +273,60 @@ public class GameController : MonoBehaviour
         }
     }
 }
+
+// --- EDITOR SCRIPT ---
+#if UNITY_EDITOR
+[CustomEditor(typeof(GameController))]
+public class GameControllerEditor : Editor
+{
+    public override void OnInspectorGUI()
+    {
+        DrawDefaultInspector();
+        
+        GUILayout.Space(10);
+        GUILayout.Label("Building Generation", EditorStyles.boldLabel);
+        
+        if (GUILayout.Button("Generate & Bake All Buildings", GUILayout.Height(40)))
+        {
+            GenerateAndBakeAllBuildings();
+        }
+    }
+    
+    void GenerateAndBakeAllBuildings()
+    {
+        // Find all BuildingGen components in the scene
+        BuildingGen[] allBuildings = GameObject.FindObjectsOfType<BuildingGen>();
+        
+        if (allBuildings.Length == 0)
+        {
+            Debug.LogWarning("No BuildingGen components found in the scene!");
+            return;
+        }
+        
+        Debug.Log($"Found {allBuildings.Length} BuildingGen component(s). Starting generation and baking...");
+        
+        int successCount = 0;
+        foreach (BuildingGen building in allBuildings)
+        {
+            try
+            {
+                // Generate the building
+                building.Generate();
+                Debug.Log($"Generated building: {building.gameObject.name}");
+                
+                // Bake the building
+                building.Bake();
+                Debug.Log($"Baked building: {building.gameObject.name}");
+                
+                successCount++;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"Error processing building {building.gameObject.name}: {e.Message}");
+            }
+        }
+        
+        Debug.Log($"Successfully generated and baked {successCount}/{allBuildings.Length} buildings!");
+    }
+}
+#endif
