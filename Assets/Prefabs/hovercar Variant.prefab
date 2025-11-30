@@ -6772,7 +6772,7 @@ PrefabInstance:
       objectReference: {fileID: 5247568956947184908}
     - target: {fileID: 3481994813462541301, guid: 0706b52645434224eb36104f62c48fe1, type: 3}
       propertyPath: attackDelay
-      value: 0.2
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3481994813462541301, guid: 0706b52645434224eb36104f62c48fe1, type: 3}
       propertyPath: attackForce
@@ -6780,7 +6780,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3481994813462541301, guid: 0706b52645434224eb36104f62c48fe1, type: 3}
       propertyPath: attackRange
-      value: 5
+      value: 6
       objectReference: {fileID: 0}
     - target: {fileID: 3481994813462541301, guid: 0706b52645434224eb36104f62c48fe1, type: 3}
       propertyPath: hitAnimator
@@ -6794,6 +6794,10 @@ PrefabInstance:
       propertyPath: jumpAudioSource
       value: 
       objectReference: {fileID: 8954139774545831016}
+    - target: {fileID: 3481994813462541301, guid: 0706b52645434224eb36104f62c48fe1, type: 3}
+      propertyPath: enemyLayer.m_Bits
+      value: 1024
+      objectReference: {fileID: 0}
     - target: {fileID: 3481994813462541301, guid: 0706b52645434224eb36104f62c48fe1, type: 3}
       propertyPath: jumpParticleSystem
       value: 

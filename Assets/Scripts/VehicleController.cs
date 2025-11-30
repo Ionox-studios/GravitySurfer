@@ -309,12 +309,7 @@ public class VehicleController : MonoBehaviour
         // Update last attack time for cooldown
         _lastAttackTime = Time.time;
         
-        // Trigger animation and slash effect
-        if (animator != null)
-            animator.SetTrigger("isAttack1");
-        
-        if (SlashEffect != null)
-            SlashEffect.SetTrigger("Kick");
+
         
         // Perform sphere overlap from player position (NonAlloc version to avoid GC)
         // Initialize buffer if needed
@@ -350,7 +345,12 @@ public class VehicleController : MonoBehaviour
                 Debug.Log($"Attack hit enemy: {col.gameObject.name} for {attackDamage} damage!");
             }
         }
+                // Trigger animation and slash effect
+        if (animator != null)
+            animator.SetTrigger("isAttack1");
         
+        if (SlashEffect != null)
+            SlashEffect.SetTrigger("Kick");
         if (showAttackDebug)
         {
             Debug.Log($"Attack executed! Hit {enemiesHit} enemies in range {attackRange}");
