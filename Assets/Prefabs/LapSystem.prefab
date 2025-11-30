@@ -398,5 +398,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4c4038feeae8a0f40b4abe1c172d34be, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LapCounter
-  checkpoint: {fileID: 0}
+  checkpoint: {fileID: 890035770059183704}
   totalLaps: 3

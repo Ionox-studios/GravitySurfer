@@ -9,6 +9,7 @@ public class SurfaceAttraction : MonoBehaviour
     [Header("Raycasting")]
     [SerializeField] private float raycastDistance = 10f;
     [SerializeField] private LayerMask groundLayer = -1; // -1 means everything
+    [SerializeField] private LayerMask waveLayer; // Layer for wave roads
     [SerializeField] private bool showDebugRays = true;
     
     [Header("Surface Alignment")]
@@ -36,6 +37,7 @@ public class SurfaceAttraction : MonoBehaviour
     
     private Rigidbody _rb;
     private bool _surfaceDetected; // Track if we detected a surface this frame
+    private bool _onWaveRoad; // Track if the detected surface is a wave road
     
     void Awake()
     {
@@ -68,6 +70,16 @@ public class SurfaceAttraction : MonoBehaviour
         if (Physics.Raycast(rayStart, rayDirection, out RaycastHit hit, raycastDistance, groundLayer))
         {
             _surfaceDetected = true;
+            
+            // Check if we hit a wave road
+            _onWaveRoad = ((1 << hit.collider.gameObject.layer) & waveLayer) != 0;
+            
+            // Debug log when on wave road
+            if (_onWaveRoad)
+            {
+                Debug.Log("ON WAVE ROAD - Max speed limit disabled");
+            }
+            
             Vector3 surfaceNormal = hit.normal;
             
             // Align to surface normal
@@ -92,6 +104,7 @@ public class SurfaceAttraction : MonoBehaviour
         else
         {
             _surfaceDetected = false;
+            _onWaveRoad = false;
             
             // No surface detected - apply world down bias
             ApplyWorldDownBias();
@@ -212,6 +225,14 @@ public class SurfaceAttraction : MonoBehaviour
     public bool IsSurfaceDetected()
     {
         return _surfaceDetected;
+    }
+    
+    /// <summary>
+    /// Public getter to check if currently on a wave road
+    /// </summary>
+    public bool IsOnWaveRoad()
+    {
+        return _onWaveRoad;
     }
     
     // Optional: Visualize raycast range in editor

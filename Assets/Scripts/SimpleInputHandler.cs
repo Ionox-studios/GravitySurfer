@@ -14,6 +14,9 @@ public class SimpleInputHandler : MonoBehaviour
     private InputAction _moveAction;
     private InputAction _jumpAction;
     private InputAction _attackAction;
+    private InputAction _interactAction;
+    private InputAction _crouchAction;
+    private InputAction _respawnAction;
     private Vector2 _currentMoveInput;
     
     void Start()
@@ -84,6 +87,43 @@ public class SimpleInputHandler : MonoBehaviour
         {
             Debug.LogWarning("SimpleInputHandler: Could not find 'Attack' action!");
         }
+        
+        // Find the Interact action
+        _interactAction = playerActionMap.FindAction("Interact");
+
+        if (_interactAction != null)
+        {
+            _interactAction.performed += OnInteract;
+        }
+        else
+        {
+            Debug.LogWarning("SimpleInputHandler: Could not find 'Interact' action!");
+        }
+        
+        // Find the Crouch action
+        _crouchAction = playerActionMap.FindAction("Crouch");
+
+        if (_crouchAction != null)
+        {
+            _crouchAction.started += OnCrouchStarted;
+            _crouchAction.canceled += OnCrouchCanceled;
+        }
+        else
+        {
+            Debug.LogWarning("SimpleInputHandler: Could not find 'Crouch' action!");
+        }
+        
+        // Find the Respawn action
+        _respawnAction = playerActionMap.FindAction("Respawn");
+
+        if (_respawnAction != null)
+        {
+            _respawnAction.performed += OnRespawn;
+        }
+        else
+        {
+            Debug.LogWarning("SimpleInputHandler: Could not find 'Respawn' action!");
+        }
     }  
 
     private void OnJump(UnityEngine.InputSystem.InputAction.CallbackContext context)
@@ -100,7 +140,44 @@ public class SimpleInputHandler : MonoBehaviour
             vehicleController.Attack();
         }
     }
-  /////  
+    
+    private void OnInteract(InputAction.CallbackContext context)
+    {
+        if (vehicleController != null)
+        {
+            vehicleController.ActivateBoost();
+        }
+    }
+    
+    private void OnCrouchStarted(InputAction.CallbackContext context)
+    {
+        if (vehicleController != null)
+        {
+            vehicleController.StartGround();
+        }
+    }
+    
+    private void OnCrouchCanceled(InputAction.CallbackContext context)
+    {
+        if (vehicleController != null)
+        {
+            vehicleController.StopGround();
+        }
+    }
+    
+    private void OnRespawn(InputAction.CallbackContext context)
+    {
+        RespawnManager respawnManager = GetComponent<RespawnManager>();
+        if (respawnManager != null)
+        {
+            respawnManager.Respawn();
+        }
+        else
+        {
+            Debug.LogWarning("SimpleInputHandler: No RespawnManager found on this GameObject!");
+        }
+    }
+  /////   
     void Update()
     {
         if (_moveAction == null) return;
@@ -133,14 +210,35 @@ public class SimpleInputHandler : MonoBehaviour
             _jumpAction.performed -= OnJump;
         }
         
+        // Unsubscribe from attack event
+        if (_attackAction != null)
+        {
+            _attackAction.performed -= OnAttack;
+        }
+        
+        // Unsubscribe from interact event
+        if (_interactAction != null)
+        {
+            _interactAction.performed -= OnInteract;
+        }
+        
+        // Unsubscribe from crouch events
+        if (_crouchAction != null)
+        {
+            _crouchAction.started -= OnCrouchStarted;
+            _crouchAction.canceled -= OnCrouchCanceled;
+        }
+        
+        // Unsubscribe from respawn event
+        if (_respawnAction != null)
+        {
+            _respawnAction.performed -= OnRespawn;
+        }
+        
         // Clean up - disable actions when destroyed
         if (inputActions != null)
         {
             inputActions.Disable();
-        }
-        if (_attackAction != null)
-        {
-            _attackAction.performed -= OnAttack;
         }
     }
 }

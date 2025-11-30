@@ -29,6 +29,10 @@ public class GameController : MonoBehaviour
     [SerializeField] private int totalLaps = 3;
     [SerializeField] private LapFeatures[] lapFeatures;
     
+    [Header("Race Completion")]
+    [Tooltip("Delay before transitioning to cutscene (seconds)")]
+    public float completionDelay = 3f;
+    
     private InputAction _quitAction;
     private InputAction _startAction;
     private InputAction _restartAction;
@@ -134,7 +138,8 @@ public class GameController : MonoBehaviour
 
     private void OnRestart(InputAction.CallbackContext context)
     {
-        if (gameEnded)
+        // Allow restart if game ended OR if death panel is showing
+        if (gameEnded || (deathPanel != null && deathPanel.activeSelf))
         {
             RestartGame();
         }
@@ -193,6 +198,22 @@ public class GameController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Get the current lap number
+    /// </summary>
+    public int GetCurrentLap()
+    {
+        return currentLap;
+    }
+
+    /// <summary>
+    /// Get the total number of laps
+    /// </summary>
+    public int GetTotalLaps()
+    {
+        return totalLaps;
+    }
+
     void ActivateLapFeatures(int lapNumber)
     {
         if (lapFeatures == null || lapFeatures.Length == 0) return;
@@ -222,6 +243,15 @@ public class GameController : MonoBehaviour
         if (gameOverPanel != null) gameOverPanel.SetActive(true);
         Time.timeScale = 0f;
     }
+    
+    public void PlayerDied()
+    {
+        if (gameEnded) return;
+        
+        gameEnded = true;
+        if (deathPanel != null) deathPanel.SetActive(true);
+        Time.timeScale = 0f;
+    }
 
     public void Win()
     {
@@ -229,7 +259,32 @@ public class GameController : MonoBehaviour
         
         gameEnded = true;
         if (winPanel != null) winPanel.SetActive(true);
-        Time.timeScale = 0f;
+        
+        Debug.Log("Race Complete!");
+        
+        // Transition to cutscene after delay
+        StartCoroutine(TransitionToCutscene());
+    }
+    
+    private System.Collections.IEnumerator TransitionToCutscene()
+    {
+        yield return new WaitForSecondsRealtime(completionDelay);
+        
+        // Tell GameSceneManager to load the cutscene
+        // if (GameSceneManager.Instance != null)
+        // {
+        //     Time.timeScale = 1f; // Reset time scale before transition
+        //     GameSceneManager.Instance.OnRaceComplete();
+        // }
+        // else
+        // {
+        //     Debug.LogWarning("GameSceneManager not found! Staying on win screen.");
+        // }
+        
+        // Load next scene
+        Time.timeScale = 1f; // Reset time scale before transition
+        int nextSceneIndex = SceneManager.GetActiveScene().buildIndex + 1;
+        SceneManager.LoadScene(nextSceneIndex);
     }
 
     public void RestartGame()

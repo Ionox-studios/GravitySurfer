@@ -51,7 +51,7 @@ public class HealthBarUI : MonoBehaviour
             // If health is 0% (0.0), overlay should be 100% (1.0) visible.
             // So overlay fill amount = 1 - healthPercent.
             
-            damageOverlayImage.fillAmount = 1f - healthPercent;
-        }
+           // damageOverlayImage.fillAmount = 1f - healthPercent;
+           damageOverlayImage.fillAmount = healthPercent;        }
     }
 }

@@ -9,12 +9,24 @@ EditorBuildSettings:
     path: Assets/Scenes/SampleScene.unity
     guid: 99c9720ab356a0642a771bea13969a05
   - enabled: 0
+    path: Assets/Scenes/0_Menu.unity
+    guid: d242bc0b5b7020c449827b98847ff5d3
+  - enabled: 0
+    path: Assets/Scenes/CutSCENES/Introduction.unity
+    guid: 242efbb71d5a41b4a9eb3270fea18d10
+  - enabled: 1
     path: Assets/Scenes/1_Mute_City.unity
     guid: 5d399c4940c0fcd4f805a9dbe92cc31d
   - enabled: 0
+    path: Assets/Scenes/CutSCENES/PostRace1.unity
+    guid: 055aed50c5fb8204e87f125b5746d047
+  - enabled: 0
     path: Assets/Scenes/2_Ebisu_Desert.unity
     guid: 52dc58065fda8164693481051ce47104
-  - enabled: 1
+  - enabled: 0
+    path: Assets/Scenes/CutSCENES/PostRace2.unity
+    guid: 7cad964b3538f0c4fb15df43399c4341
+  - enabled: 0
     path: Assets/Scenes/3_Event_Horizon.unity
     guid: ca2b14e1bbcfc8a4fb115e408a0de931
   m_configObjects:

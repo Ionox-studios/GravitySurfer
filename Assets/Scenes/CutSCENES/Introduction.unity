@@ -604,8 +604,8 @@ MonoBehaviour:
   m_text: "\r\r\"Be sure NOT to get caught by the townsfolk. They don't take kindly
     to the odd ones \nlike us...\"\r"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 7d78e64370868064385390cbec291afe, type: 2}
-  m_sharedMaterial: {fileID: -8578365923621210501, guid: 7d78e64370868064385390cbec291afe, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1441,8 +1441,8 @@ MonoBehaviour:
     Once
     you collect the parts, leave the village by crossing the bridge to the south.'
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 7d78e64370868064385390cbec291afe, type: 2}
-  m_sharedMaterial: {fileID: -8578365923621210501, guid: 7d78e64370868064385390cbec291afe, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -2175,8 +2175,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Off I go
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 7d78e64370868064385390cbec291afe, type: 2}
-  m_sharedMaterial: {fileID: -8578365923621210501, guid: 7d78e64370868064385390cbec291afe, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -2834,8 +2834,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Next
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 7d78e64370868064385390cbec291afe, type: 2}
-  m_sharedMaterial: {fileID: -8578365923621210501, guid: 7d78e64370868064385390cbec291afe, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -3121,8 +3121,8 @@ MonoBehaviour:
   m_text: "\r\r\r\"If you don't find my chimeric specimen, anything will work. But
     make sure there's a head. A torso. Two arms. And two legs.\""
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 7d78e64370868064385390cbec291afe, type: 2}
-  m_sharedMaterial: {fileID: -8578365923621210501, guid: 7d78e64370868064385390cbec291afe, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -3302,6 +3302,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b3f6aa6b0bbd1d941ae3eb600a7d4a70, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  levelButtonContainer: {fileID: 0}
+  levelButtonPrefab: {fileID: 0}
 --- !u!224 &818994075
 RectTransform:
   m_ObjectHideFlags: 0
@@ -3380,8 +3382,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Next
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 7d78e64370868064385390cbec291afe, type: 2}
-  m_sharedMaterial: {fileID: -8578365923621210501, guid: 7d78e64370868064385390cbec291afe, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -4256,8 +4258,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: CONTROLS
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 7d78e64370868064385390cbec291afe, type: 2}
-  m_sharedMaterial: {fileID: -8578365923621210501, guid: 7d78e64370868064385390cbec291afe, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -5133,8 +5135,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Next
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 7d78e64370868064385390cbec291afe, type: 2}
-  m_sharedMaterial: {fileID: -8578365923621210501, guid: 7d78e64370868064385390cbec291afe, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -5562,8 +5564,8 @@ MonoBehaviour:
     the aggressive townsfolk. Navigate through the village and be careful not to
     be caught by its denizens!'
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 7d78e64370868064385390cbec291afe, type: 2}
-  m_sharedMaterial: {fileID: -8578365923621210501, guid: 7d78e64370868064385390cbec291afe, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -5639,6 +5641,55 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1559022444}
   m_CullTransparentMesh: 1
+--- !u!1 &1594665109
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1594665111}
+  - component: {fileID: 1594665110}
+  m_Layer: 0
+  m_Name: CutSceneController
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1594665110
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1594665109}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 93d24ae43d4c5804a80afef62707b2e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CutsceneController
+  inputActions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  minPlayTimeBeforeSkip: 1
+  videoPlayer: {fileID: 0}
+  cutsceneDuration: 10
+  skipPromptUI: {fileID: 0}
+--- !u!4 &1594665111
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1594665109}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 2107.3, y: 146, z: 405.32507}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1678658904
 GameObject:
   m_ObjectHideFlags: 0
@@ -6583,8 +6634,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: GOAL
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 7d78e64370868064385390cbec291afe, type: 2}
-  m_sharedMaterial: {fileID: -8578365923621210501, guid: 7d78e64370868064385390cbec291afe, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -6720,8 +6771,8 @@ MonoBehaviour:
   m_text: "\r\r\r\"And lastly... miss any body parts, and I'll be using YOU instead.\"
     \r\n\r\n\"Now get to work.\""
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 7d78e64370868064385390cbec291afe, type: 2}
-  m_sharedMaterial: {fileID: -8578365923621210501, guid: 7d78e64370868064385390cbec291afe, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -6859,8 +6910,8 @@ MonoBehaviour:
     the body part. Body parts are generally hidden in chests, but some may be hidden
     in plain sight...\n\nPress 'I' to toggle your inventory."
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 7d78e64370868064385390cbec291afe, type: 2}
-  m_sharedMaterial: {fileID: -8578365923621210501, guid: 7d78e64370868064385390cbec291afe, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -7138,3 +7189,4 @@ SceneRoots:
   - {fileID: 1021976191}
   - {fileID: 818994075}
   - {fileID: 2145805271}
+  - {fileID: 1594665111}

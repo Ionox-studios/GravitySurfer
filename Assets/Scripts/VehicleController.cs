@@ -14,9 +14,20 @@ public class VehicleController : MonoBehaviour
     [SerializeField] private float velocityDamping = 3f; // How quickly velocity decreases when no input
     [SerializeField] private float velocityAlignmentStrength = 5f; // How much velocity rotates with the object (arcade feel)
     
+    [Header("Boost")]
+    [SerializeField] private float boostDuration = 3f; // How long boost lasts in seconds
+    [SerializeField] private float boostForceMultiplier = 2f; // Multiplier for movement force during boost
+    [SerializeField] private float boostCooldown = 30f; // Cooldown time before boost can be used again
+    
+    [Header("Jump System")]
+    [SerializeField] private float jumpCooldown = 1f; // Cooldown between jumps in seconds
+    
+    [Header("Attack System")]
+    [SerializeField] private float attackCooldown = 1f; // Cooldown between attacks in seconds
+    
     [Header("Raycasting (for hover & grounded detection)")]
     [SerializeField] private float raycastDistance = 10f;
-    [SerializeField] private LayerMask groundLayer = -1; // -1 means everything
+    [SerializeField] private LayerMask groundLayer; // Set to Enemy layer in Inspector
     [SerializeField] private bool showDebugRays = true;
     
     [Header("Hover")]
@@ -30,10 +41,17 @@ public class VehicleController : MonoBehaviour
     [SerializeField] private float attackDelay = 0.5f; // Delay before attack executes
     [SerializeField] private float attackDamage = 25f; // Damage dealt to enemies
     [SerializeField] private float attackForce = 500f; // Force applied to hit enemies
-    [SerializeField] private LayerMask enemyLayer = -1; // Layer mask for enemies
+    [SerializeField] private LayerMask enemyLayer; // Layer mask for enemies - set to Enemy layer in Inspector
     [SerializeField] private bool showAttackDebug = true; // Show attack range visualization
+    [SerializeField] private int maxEnemiesPerAttack = 20; // Max enemies that can be hit in one attack
+    
+    [Header("Ground Slam")]
+    [SerializeField] private float groundRotationSpeed = 200f; // Speed of downward rotation when grounding
+    [SerializeField] private float groundPullForce = 50f; // Downward force applied when grounding
+    [SerializeField] private bool enableGroundMechanic = true; // Toggle ground slam on/off
     
     private Rigidbody _rb;
+    private SurfaceAttraction _surfaceAttraction; // Reference to surface attraction component
     private Vector2 _moveInput; // Store input for FixedUpdate
     private bool _isGrounded; // Track if we detected a surface this frame
     private bool _attackPending = false; // Is an attack queued?
@@ -41,9 +59,30 @@ public class VehicleController : MonoBehaviour
     public Animator animator; // AL
     public Animator SlashEffect; //AL
     
+    // Jump system variables
+    private float _lastJumpTime = -999f; // Time of last jump
+    
+    // Attack system variables
+    private float _lastAttackTime = -999f; // Time of last attack
+    private Collider[] _attackResults; // Reusable buffer for attack overlap results
+    
+    [Header("Jump Effects")]
+    [SerializeField] private ParticleSystem jumpParticleSystem; // Particle effect on jump
+    [SerializeField] private AudioSource jumpAudioSource; // Sound effect on jump
+    
+    // Boost system variables
+    private bool _isBoostActive = false; // Is boost currently active
+    private float _boostTimeRemaining = 0f; // Time remaining on current boost
+    private float _boostCooldownRemaining = 0f; // Cooldown time remaining before boost can be used again
+    private bool _boostAvailable = true; // Is boost ready to use
+    
+    // Ground slam variables
+    private bool _isGrounding = false; // Is ground slam currently active
+    
     void Awake()
     {
         _rb = GetComponent<Rigidbody>();
+        _surfaceAttraction = GetComponent<SurfaceAttraction>();
         
         if (_rb == null)
         {
@@ -64,6 +103,15 @@ public class VehicleController : MonoBehaviour
     
     void FixedUpdate()
     {
+        // Update boost timer
+        UpdateBoost();
+        
+        // Apply grounding mechanic if active
+        if (_isGrounding && enableGroundMechanic)
+        {
+            ApplyGroundMechanic();
+        }
+        
         // Apply movement
         ApplyMovement();
         
@@ -101,33 +149,156 @@ public class VehicleController : MonoBehaviour
     
     /// <summary>
     /// Jump - applies an impulse force in the object's up direction
+    /// Infinite jumps with cooldown
     /// </summary>
     public void Jump()
     {
         if (_rb == null) return;
         
-        // Apply jump force in the object's local up direction
+        // Check if cooldown is ready
+        float timeSinceLastJump = Time.time - _lastJumpTime;
+        bool cooldownReady = timeSinceLastJump >= jumpCooldown;
+        
+        if (!cooldownReady)
+        {
+            Debug.Log($"Jump on cooldown! Wait {jumpCooldown - timeSinceLastJump:F1}s");
+            return;
+        }
+        
+        // Execute jump
         _rb.AddForce(transform.up * jumpForce, ForceMode.Impulse);
+        _lastJumpTime = Time.time;
+        
         if (animator != null) // AL
             animator.SetTrigger("Jump"); // AL
-    //        SlashEffect.SetTrigger("Kick"); // AL
+        
+        // Play jump particle effect
+        if (jumpParticleSystem != null)
+        {
+            jumpParticleSystem.Play();
+            Debug.Log("Playing jump particles!");
+        }
+        else
+        {
+            Debug.LogWarning("Jump particle system not assigned!");
+        }
+        
+        // Play jump sound effect
+        if (jumpAudioSource != null)
+            jumpAudioSource.Play();
         
         Debug.Log("Jump!");
     }
 
+
+    
     public void Attack() //AL
     {
-        if (_attackPending) return; // Already have an attack pending
+        // Check cooldown
+        if (Time.time - _lastAttackTime < attackCooldown)
+        {
+            Debug.Log($"Attack on cooldown! {(attackCooldown - (Time.time - _lastAttackTime)):F1}s remaining");
+            return;
+        }
         
-        // Queue the attack
-        _attackPending = true;
-        _attackTimer = attackDelay;
+        // Execute attack immediately
+        ExecuteAttack();
         
-        if (animator != null) // AL
-            animator.SetTrigger("isAttack1"); // AL
-            SlashEffect.SetTrigger("Kick"); // AL
+        Debug.Log("Attack executed immediately!");
+    }
+    
+    /// <summary>
+    /// Activate boost mode - doubles force and disables max speed for duration
+    /// </summary>
+    public void ActivateBoost()
+    {
+        // Check if boost is available (not on cooldown)
+        if (!_boostAvailable)
+        {
+            Debug.Log($"Boost on cooldown! {_boostCooldownRemaining:F1}s remaining");
+            return;
+        }
         
-        Debug.Log($"Attack queued! Will execute in {attackDelay} seconds");
+        if (_isBoostActive)
+        {
+            // Already boosting - ignore
+            Debug.Log("Boost already active!");
+        }
+        else
+        {
+            // Start new boost
+            _isBoostActive = true;
+            _boostTimeRemaining = boostDuration;
+            _boostAvailable = false;
+            _boostCooldownRemaining = boostCooldown;
+            Debug.Log($"Boost activated! Duration: {boostDuration}s, Force multiplier: {boostForceMultiplier}x");
+        }
+    }
+    
+    /// <summary>
+    /// Start ground slam - rapidly rotate down and pull vehicle to ground
+    /// Call this when crouch button is pressed
+    /// </summary>
+    public void StartGround()
+    {
+        if (!enableGroundMechanic) return;
+        _isGrounding = true;
+    }
+    
+    /// <summary>
+    /// Stop ground slam
+    /// Call this when crouch button is released
+    /// </summary>
+    public void StopGround()
+    {
+        _isGrounding = false;
+    }
+    
+    /// <summary>
+    /// Apply downward rotation and force while grounding
+    /// </summary>
+    private void ApplyGroundMechanic()
+    {
+        if (_rb == null) return;
+        
+        // Apply strong downward force (world down)
+        _rb.AddForce(Vector3.down * groundPullForce, ForceMode.Acceleration);
+        
+        // Rotate so the vehicle's up points toward world up (standing upright)
+        Quaternion targetRotation = Quaternion.FromToRotation(transform.up, Vector3.up) * transform.rotation;
+        transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, groundRotationSpeed * Time.fixedDeltaTime);
+    }
+    
+    /// <summary>
+    /// Update boost timer each fixed update
+    /// </summary>
+    private void UpdateBoost()
+    {
+        // Update active boost timer
+        if (_isBoostActive)
+        {
+            _boostTimeRemaining -= Time.fixedDeltaTime;
+            
+            if (_boostTimeRemaining <= 0f)
+            {
+                _isBoostActive = false;
+                _boostTimeRemaining = 0f;
+                Debug.Log("Boost ended! Cooldown started.");
+            }
+        }
+        
+        // Update cooldown timer
+        if (!_boostAvailable)
+        {
+            _boostCooldownRemaining -= Time.fixedDeltaTime;
+            
+            if (_boostCooldownRemaining <= 0f)
+            {
+                _boostAvailable = true;
+                _boostCooldownRemaining = 0f;
+                Debug.Log("Boost recharged and ready!");
+            }
+        }
     }
     
     /// <summary>
@@ -135,13 +306,29 @@ public class VehicleController : MonoBehaviour
     /// </summary>
     private void ExecuteAttack()
     {
-        // Perform sphere cast from player position
-        Collider[] hitColliders = Physics.OverlapSphere(transform.position, attackRange, enemyLayer);
+        // Update last attack time for cooldown
+        _lastAttackTime = Time.time;
+        
+        // Trigger animation and slash effect
+        if (animator != null)
+            animator.SetTrigger("isAttack1");
+        
+        if (SlashEffect != null)
+            SlashEffect.SetTrigger("Kick");
+        
+        // Perform sphere overlap from player position (NonAlloc version to avoid GC)
+        // Initialize buffer if needed
+        if (_attackResults == null || _attackResults.Length != maxEnemiesPerAttack)
+            _attackResults = new Collider[maxEnemiesPerAttack];
+        
+        int numHits = Physics.OverlapSphereNonAlloc(transform.position, attackRange, _attackResults, enemyLayer);
         
         int enemiesHit = 0;
         
-        foreach (Collider col in hitColliders)
+        for (int i = 0; i < numHits; i++)
         {
+            Collider col = _attackResults[i];
+            
             // Skip self
             if (col.gameObject == gameObject) continue;
             
@@ -206,17 +393,26 @@ public class VehicleController : MonoBehaviour
             Vector3 localVelocity = transform.InverseTransformDirection(_rb.linearVelocity);
             float forwardSpeed = localVelocity.z;
             
+            // Check if on wave road - if so, disable max speed limit
+            bool onWaveRoad = _surfaceAttraction != null && _surfaceAttraction.IsOnWaveRoad();
+            
             // Only apply acceleration if:
+            // - Boost is active (no speed limit), OR
+            // - On a wave road (no speed limit), OR
             // - Moving forward and below max speed, OR
             // - Moving backward (negative input), OR
             // - Trying to slow down (input opposes current velocity)
-            bool canAccelerate = (_moveInput.y > 0 && forwardSpeed < maxSpeed) || // Forward and below max
+            bool canAccelerate = _isBoostActive || // No speed limit during boost
+                                 onWaveRoad || // No speed limit on wave roads
+                                 (_moveInput.y > 0 && forwardSpeed < maxSpeed) || // Forward and below max
                                  (_moveInput.y < 0 && forwardSpeed > -maxSpeed) || // Backward and below max (in reverse)
                                  (_moveInput.y * forwardSpeed < 0); // Input opposes velocity (braking)
             
             if (canAccelerate)
             {
-                Vector3 moveForce = transform.forward * _moveInput.y * moveSpeed;
+                // Apply boost multiplier if active
+                float currentMoveSpeed = _isBoostActive ? moveSpeed * boostForceMultiplier : moveSpeed;
+                Vector3 moveForce = transform.forward * _moveInput.y * currentMoveSpeed;
                 _rb.AddForce(moveForce, ForceMode.Acceleration);
             }
         }
@@ -323,6 +519,70 @@ public class VehicleController : MonoBehaviour
         return Mathf.Clamp01(_rb.linearVelocity.magnitude / maxSpeed);
     }
     
+    /// <summary>
+    /// Check if boost is currently active
+    /// </summary>
+    public bool IsBoostActive()
+    {
+        return _isBoostActive;
+    }
+    
+    /// <summary>
+    /// Get remaining boost time
+    /// </summary>
+    public float GetBoostTimeRemaining()
+    {
+        return _boostTimeRemaining;
+    }
+    
+    /// <summary>
+    /// Check if boost is available (not on cooldown)
+    /// </summary>
+    public bool IsBoostAvailable()
+    {
+        return _boostAvailable;
+    }
+    
+    /// <summary>
+    /// Get remaining cooldown time
+    /// </summary>
+    public float GetBoostCooldownRemaining()
+    {
+        return _boostCooldownRemaining;
+    }
+    
+    /// <summary>
+    /// Get boost duration setting
+    /// </summary>
+    public float GetBoostDuration()
+    {
+        return boostDuration;
+    }
+    
+    /// <summary>
+    /// Get boost cooldown setting
+    /// </summary>
+    public float GetBoostCooldown()
+    {
+        return boostCooldown;
+    }
+    
+    /// <summary>
+    /// Get the jump cooldown duration
+    /// </summary>
+    public float GetJumpCooldown()
+    {
+        return jumpCooldown;
+    }
+    
+    /// <summary>
+    /// Get the time when the last jump occurred
+    /// </summary>
+    public float GetLastJumpTime()
+    {
+        return _lastJumpTime;
+    }
+    
     // Optional: Visualize in editor
     void OnDrawGizmosSelected()
     {
@@ -338,6 +598,32 @@ public class VehicleController : MonoBehaviour
         {
             Gizmos.color = _attackPending ? Color.red : new Color(1f, 0.5f, 0f, 0.3f);
             Gizmos.DrawWireSphere(transform.position, attackRange);
+        }
+    }
+    
+    // Show attack gizmo even when not selected (during attack)
+    void OnDrawGizmos()
+    {
+        if (!showAttackDebug) return;
+        
+        // Show bright red sphere when attack is about to execute (last 0.1s of timer)
+        if (_attackPending && _attackTimer <= 0.1f)
+        {
+            Gizmos.color = Color.red;
+            Gizmos.DrawWireSphere(transform.position, attackRange);
+            
+            // Also draw a solid sphere to make it more visible
+            Gizmos.color = new Color(1f, 0f, 0f, 0.15f);
+            Gizmos.DrawSphere(transform.position, attackRange);
+        }
+        // Show yellow sphere during attack delay
+        else if (_attackPending)
+        {
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawWireSphere(transform.position, attackRange);
+            
+            Gizmos.color = new Color(1f, 1f, 0f, 0.1f);
+            Gizmos.DrawSphere(transform.position, attackRange);
         }
     }
 }

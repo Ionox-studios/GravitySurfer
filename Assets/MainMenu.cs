@@ -5,17 +5,24 @@ using UnityEngine.SceneManagement;
 
 public class MainMenu : MonoBehaviour
 {
-//     FadeInOut fade; //xxxx
    public void Playgame()
    {
-//        fade = FindAnyObjectOfType<FadeInOut>(); //
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex + 1);
    }
-      public void Credits()
+
+   public void MuteCity()
    {
-        SceneManager.LoadScene("credits");
+        SceneManager.LoadScene("1_Mute_City");
    }
-   
+   public void EbisuDesert()
+   {
+        SceneManager.LoadScene("2_Ebisu_Desert");
+   }
+   public void Singularity()
+   {
+        SceneManager.LoadScene("3_Event_Horizon");
+   }
+
    public void QuitGame()
    {
     Application.Quit();

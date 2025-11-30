@@ -1,8 +1,11 @@
 ﻿using UnityEngine;
 
 [RequireComponent(typeof(VehicleController))]
-public class EnemyBehavior : MonoBehaviour
+public class EnemyBehavior : MonoBehaviour, IRacer
 {
+    [Header("Racer Info")]
+    [SerializeField] private string racerName = "Enemy";
+    [Tooltip("Name to display in rankings")]
     [Header("Path")]
     [SerializeField] private Transform[] waypoints;
     [SerializeField] private float waypointRadius = 5f;   // how close before switching
@@ -35,15 +38,17 @@ public class EnemyBehavior : MonoBehaviour
     [SerializeField] private float releaseWaitTime = 2f;   // how long to wait after taking damage before re-approaching
 
     [Header("Attack")]
-    [SerializeField] private GameObject attackObject;     // object that swings to hit player
     [SerializeField] private float attackInterval = 1f;   // time between attacks
-    [SerializeField] private float attackSwingTime = 0.5f; // how long the swing takes
+    [SerializeField] private float attackDuration = 0.5f; // how long the attack sphere grows
+    [SerializeField] private float attackMaxRadius = 5f;  // maximum radius of attack sphere
     [SerializeField] private float attackDamage = 10f;    // damage dealt to player
     [SerializeField] private float attackPushForce = 10f; // push force applied to player
+    [SerializeField] private GameObject attackSphereVisual; // visual sphere object (optional)
 
     [Header("Health")]
     [SerializeField] private float maxHealth = 100f;
     [SerializeField] private float currentHealth;
+    [SerializeField] private ParticleSystem hitParticleEffect; // Particle effect to play when hit
 
     [Header("Respawn")]
     [SerializeField] private float respawnYThreshold = 5f; // If below this Y, respawn
@@ -81,20 +86,28 @@ public class EnemyBehavior : MonoBehaviour
     private bool _isWaitingAfterDamage; // true when waiting after taking damage (no target position)
     private Vector3 _capturePlayerLockPosition; // player's local position when enemy locked on
     private float _capturePlayerLockLateral; // player's lateral position when locked
+    private float _captureYOffset; // Y offset to maintain relative height
 
     // Attack behavior
     private float _attackTimer;
-    private bool _isSwinging;
-    private float _swingTimer;
-    private Quaternion _attackStartRotation;
-    private Quaternion _attackEndRotation;
+    private bool _isAttacking;
+    private float _attackProgressTimer;
+    private bool _hasHitPlayerThisAttack; // Track if we've already hit player in current attack
+    private EnemyAttackSphere _attackSphereScript;
     public Animator animator;
-
+    public Animator animator2;
     // Respawn tracking
     private Vector3 _lastNodePosition; // Position of last waypoint passed
     private int _stuckCount; // Counts how many times stuck in time window
     private float _stuckCountTimer; // Timer for stuck count window
     private Rigidbody _rb;
+
+    // Rotation monitoring
+    private float _previousYRotation; // Last frame's Y rotation
+    private bool _isStartGroundActive; // Whether start ground is active
+    private float _startGroundTimer; // Timer for start ground duration
+    private const float ROTATION_THRESHOLD = 10f; // Y rotation change threshold in degrees
+    private const float START_GROUND_DURATION = 5f; // Duration to hold start ground
 
     void Awake()
     {
@@ -117,24 +130,32 @@ public class EnemyBehavior : MonoBehaviour
         _stuckCount = 0;
         _stuckCountTimer = 0f;
 
+        // Start enemies on lap 1 to match player starting lap
+        _currentLap = 1;
+
         // Initialize health
         currentHealth = maxHealth;
 
-        // Initialize attack object rotation
-        if (attackObject != null)
+        // Initialize attack sphere visual if provided
+        if (attackSphereVisual != null)
         {
-            _attackStartRotation = attackObject.transform.localRotation;
-            _attackEndRotation = attackObject.transform.localRotation * Quaternion.Euler(0f, 0f, 180f); // Swing 180 degrees
+            attackSphereVisual.SetActive(false);
             
-            // Set damage and push force on attack collider if it exists
-            EnemyAttackCollider attackCollider = attackObject.GetComponent<EnemyAttackCollider>();
-            if (attackCollider != null)
+            // Get or add EnemyAttackSphere component
+            _attackSphereScript = attackSphereVisual.GetComponent<EnemyAttackSphere>();
+            if (_attackSphereScript == null)
             {
-                attackCollider.SetDamage(attackDamage);
-                attackCollider.SetPushForce(attackPushForce);
-                attackCollider.SetOnHitCallback(OnPlayerHit);
+                _attackSphereScript = attackSphereVisual.AddComponent<EnemyAttackSphere>();
             }
+            
+            // Initialize with callback
+            _attackSphereScript.Initialize(OnAttackSphereHitPlayer);
         }
+
+        // Initialize rotation monitoring
+        _previousYRotation = transform.eulerAngles.y;
+        _isStartGroundActive = false;
+        _startGroundTimer = 0f;
     }
 
     void FixedUpdate()
@@ -143,6 +164,9 @@ public class EnemyBehavior : MonoBehaviour
 
         // Check for respawn conditions
         CheckRespawnConditions();
+
+        // Check for rotation changes and trigger start ground
+        CheckRotationChange();
 
         // Track game time
         _gameTimer += Time.fixedDeltaTime;
@@ -168,6 +192,9 @@ public class EnemyBehavior : MonoBehaviour
                     _captureTimer = 0f;
                     _captureLerpTimer = 0f;
                     _hasReachedCapturePosition = false;
+                    
+                    // Capture initial Y offset to maintain relative height
+                    _captureYOffset = transform.position.y - player.position.y;
                     
                     // Determine which side of the player we're on
                     Vector3 toEnemy = transform.position - player.position;
@@ -332,6 +359,7 @@ public class EnemyBehavior : MonoBehaviour
         if (player == null)
         {
             _isCapturing = false;
+            HideAttackSphere();
             return;
         }
 
@@ -342,6 +370,9 @@ public class EnemyBehavior : MonoBehaviour
         {
             _isCapturing = false;
             _captureCooldownTimer = captureCooldown; // Start cooldown
+            
+            // Hide attack sphere when capture ends
+            HideAttackSphere();
             
             // Find closest node ahead and credit skipped nodes
             FindClosestForwardNode();
@@ -380,9 +411,9 @@ public class EnemyBehavior : MonoBehaviour
                 Vector3 toTarget = _releaseTargetPosition - transform.position;
                 float distance = toTarget.magnitude;
                 
-                if (distance < waypointRadius)
+                if (distance < waypointRadius || _releaseTimer >= releaseWaitTime)
                 {
-                    // Reached release position, reset and prepare to re-approach
+                    // Reached release position or time elapsed, reset and prepare to re-approach
                     _isReleasing = false;
                     _hasReachedCapturePosition = false;
                     _captureLerpTimer = 0f;
@@ -391,13 +422,9 @@ public class EnemyBehavior : MonoBehaviour
                 }
                 else
                 {
-                    // Navigate to release position using next node as forward reference
-                    Transform releaseNextNode = waypoints[_currentIndex];
-                    Vector3 toReleaseNode = releaseNextNode.position - transform.position;
-                    Vector3 nodeForward = Vector3.ProjectOnPlane(toReleaseNode, transform.up).normalized;
-                    
+                    // Navigate to release position using vehicle's current forward direction
                     Vector3 flatToTarget = Vector3.ProjectOnPlane(toTarget, transform.up).normalized;
-                    float signedAngle = Vector3.SignedAngle(nodeForward, flatToTarget, transform.up);
+                    float signedAngle = Vector3.SignedAngle(transform.forward, flatToTarget, transform.up);
                     float steer = Mathf.Clamp(signedAngle / maxSteerAngle, -1f, 1f);
                     
                     _vehicle.Move(new Vector2(steer, baseThrottle));
@@ -461,8 +488,10 @@ public class EnemyBehavior : MonoBehaviour
             _captureOffset = pathRight * lateralDistance + pathForward * captureForwardOffset;
         }
         
-        // Set position directly locked to player
-        transform.position = player.position + _captureOffset;
+        // Set position directly locked to player, maintaining Y offset
+        Vector3 targetPosition = player.position + _captureOffset;
+        targetPosition.y = player.position.y + _captureYOffset;
+        transform.position = targetPosition;
         
         // Orient enemy to face along the path direction
         transform.rotation = Quaternion.LookRotation(pathForward, transform.up);
@@ -471,50 +500,80 @@ public class EnemyBehavior : MonoBehaviour
         _vehicle.Move(Vector2.zero);
     }
 
+    private void HideAttackSphere()
+    {
+        if (attackSphereVisual != null)
+        {
+            attackSphereVisual.SetActive(false);
+            
+            if (_attackSphereScript != null)
+            {
+                _attackSphereScript.SetActive(false);
+            }
+        }
+        
+        _isAttacking = false;
+        _attackTimer = 0f;
+        _hasHitPlayerThisAttack = false;
+        
+
+    }
+
     private void UpdateAttack()
     {
-        if (attackObject == null || player == null) return;
+        if (player == null) return;
 
-        // Only attack when capture is active and we've reached position
-        if (!_isCapturing || !_hasReachedCapturePosition) return;
-
+        // Only attack when capture is active, we've reached position, AND not currently releasing
+        if (!_isCapturing || !_hasReachedCapturePosition || _isReleasing) return;
 
         // Update attack timer
         _attackTimer += Time.fixedDeltaTime;
 
-        // Handle active swing
-        if (_isSwinging)
+        // Handle active attack
+        if (_isAttacking)
         {
-            _swingTimer += Time.fixedDeltaTime;
-            float t = Mathf.Clamp01(_swingTimer / attackSwingTime);
+            _attackProgressTimer += Time.fixedDeltaTime;
+            float t = Mathf.Clamp01(_attackProgressTimer / attackDuration);
 
-            // Calculate direction to player
-            Vector3 directionToPlayer = player.position - attackObject.transform.position;
-            directionToPlayer.Normalize();
-            
-            // Create rotation that looks at player, then rotate 180 degrees around forward axis
-            Quaternion lookAtPlayer = Quaternion.LookRotation(directionToPlayer);
-            Quaternion swing = Quaternion.Euler(t * 180f, 0f, 0f); // Rotate 180 degrees
-            attackObject.transform.rotation = lookAtPlayer * swing;
+            // Calculate current sphere radius (grows from 0 to max)
+            float currentRadius = attackMaxRadius * t;
 
-        if (animator != null) // AL
-            animator.SetTrigger("Attack"); // AL
+            // Update visual sphere if it exists
+            if (attackSphereVisual != null)
+            {
+                attackSphereVisual.SetActive(true);
+                attackSphereVisual.transform.position = transform.position;
+                attackSphereVisual.transform.localScale = Vector3.one * currentRadius;
+                // Enable trigger detection
+                if (_attackSphereScript != null)
+                {
+                    _attackSphereScript.SetActive(true);
+                }
+                if (animator != null)
+                  animator.SetTrigger("Attack");
+                if (animator2 != null)
+                  animator2.SetTrigger("Attack");
+            }
 
-
-            // End swing and reset (but stay locked on player if no hit)
+            // End attack when duration completes
             if (t >= 1f)
             {
-                _isSwinging = false;
-                _attackTimer = 0f;
-                attackObject.transform.localRotation = Quaternion.identity;
-                // Note: We do NOT release here - only release when OnPlayerHit() is called
+                HideAttackSphere();
             }
         }
-        // Start new swing if interval has passed
+        // Start new attack if interval has passed
         else if (_attackTimer >= attackInterval)
         {
-            _isSwinging = true;
-            _swingTimer = 0f;
+            _isAttacking = true;
+            _attackProgressTimer = 0f;
+            _attackTimer = 0f; // Reset timer to prevent triggering again
+            _hasHitPlayerThisAttack = false;
+            
+            // Trigger animations at start of attack
+   //         if (animator != null)
+   //             animator.SetTrigger("Attack");
+   //         if (animator2 != null)
+   //             animator2.SetTrigger("Attack");
         }
     }
 
@@ -565,6 +624,31 @@ public class EnemyBehavior : MonoBehaviour
     }
 
     /// <summary>
+    /// Called when the attack sphere trigger hits the player
+    /// </summary>
+    private void OnAttackSphereHitPlayer(GameObject playerObject)
+    {
+        if (!_isAttacking || _hasHitPlayerThisAttack) return;
+
+        PlayerHealth playerHealth = playerObject.GetComponent<PlayerHealth>();
+        if (playerHealth != null)
+        {
+            // Calculate push direction
+            Vector3 pushDirection = (playerObject.transform.position - transform.position);
+            pushDirection.y = 0f; // Remove vertical component
+            pushDirection = pushDirection.normalized * attackPushForce;
+
+            playerHealth.TakeDamage(attackDamage, pushDirection);
+            _hasHitPlayerThisAttack = true;
+            
+            Debug.Log($"Enemy sphere attack hit player for {attackDamage} damage via trigger!");
+            
+            // Call hit callback to release
+            OnPlayerHit();
+        }
+    }
+
+    /// <summary>
     /// Called when the enemy successfully hits the player
     /// </summary>
     private void OnPlayerHit()
@@ -576,6 +660,11 @@ public class EnemyBehavior : MonoBehaviour
         _releaseTargetPosition = transform.position + awayDirection * releaseDistance;
         
         _isReleasing = true;
+        _releaseTimer = 0f; // Reset release timer
+        
+        // Hide attack sphere and reset animations when releasing
+        HideAttackSphere();
+        
         Debug.Log("Enemy hit player! Releasing and will re-approach if time remains.");
     }
 
@@ -590,6 +679,12 @@ public class EnemyBehavior : MonoBehaviour
         currentHealth = Mathf.Clamp(currentHealth, 0f, maxHealth);
 
         Debug.Log($"Enemy took {damage} damage. Current health: {currentHealth}/{maxHealth}");
+
+        // Play hit particle effect
+        if (hitParticleEffect != null)
+        {
+            hitParticleEffect.Play();
+        }
 
         // Apply push force if provided
         if (pushDirection.HasValue)
@@ -608,6 +703,10 @@ public class EnemyBehavior : MonoBehaviour
             _isReleasing = true;
             _isWaitingAfterDamage = true;
             _releaseTimer = 0f;
+            
+            // Hide attack sphere and reset animations when taking damage
+            HideAttackSphere();
+            
             Debug.Log("Enemy took damage while capturing! Waiting 2 seconds before re-approaching.");
         }
 
@@ -627,6 +726,57 @@ public class EnemyBehavior : MonoBehaviour
         currentHealth = Mathf.Clamp(currentHealth, 0f, maxHealth);
 
         Debug.Log($"Enemy healed {amount}. Current health: {currentHealth}/{maxHealth}");
+    }
+
+    /// <summary>
+    /// Checks for Y-axis rotation changes and triggers start ground if exceeded threshold
+    /// </summary>
+    private void CheckRotationChange()
+    {
+        // Update start ground timer if active
+        if (_isStartGroundActive)
+        {
+            _startGroundTimer += Time.fixedDeltaTime;
+            
+            if (_startGroundTimer >= START_GROUND_DURATION)
+            {
+                // Duration complete, release start ground
+                if (_vehicle != null)
+                {
+                    _vehicle.StopGround();
+                }
+                _isStartGroundActive = false;
+                _startGroundTimer = 0f;
+                Debug.Log("Enemy released start ground after 2 seconds");
+            }
+            
+            // Reset previous rotation while start ground is active
+            _previousYRotation = transform.eulerAngles.y;
+            return;
+        }
+
+        // Get current Y rotation
+        float currentYRotation = transform.eulerAngles.y;
+        
+        // Calculate rotation difference (handling wrap-around at 0/360)
+        float rotationDiff = Mathf.DeltaAngle(_previousYRotation, currentYRotation);
+        
+        // Check if rotation exceeded threshold
+        if (Mathf.Abs(rotationDiff) > ROTATION_THRESHOLD)
+        {
+            // Trigger start ground
+            if (_vehicle != null)
+            {
+                _vehicle.StartGround();
+            }
+            _isStartGroundActive = true;
+            _startGroundTimer = 0f;
+            
+            Debug.Log($"Enemy Y rotation changed by {rotationDiff:F1} degrees! Starting ground for 2 seconds.");
+        }
+        
+        // Update previous rotation
+        _previousYRotation = currentYRotation;
     }
 
     /// <summary>
@@ -706,5 +856,74 @@ public class EnemyBehavior : MonoBehaviour
     public float GetMaxHealth()
     {
         return maxHealth;
+    }
+
+    // ============= IRacer Interface Implementation =============
+    
+    /// <summary>
+    /// Get current lap number (1-indexed)
+    /// </summary>
+    public int GetCurrentLap()
+    {
+        return _currentLap;
+    }
+    
+    /// <summary>
+    /// Get current waypoint/node index
+    /// </summary>
+    public int GetCurrentNodeIndex()
+    {
+        return _currentIndex;
+    }
+    
+    /// <summary>
+    /// Get total number of waypoints/nodes
+    /// </summary>
+    public int GetTotalNodes()
+    {
+        return waypoints != null ? waypoints.Length : 0;
+    }
+    
+    /// <summary>
+    /// Get this enemy's transform
+    /// </summary>
+    public Transform GetTransform()
+    {
+        return transform;
+    }
+    
+    /// <summary>
+    /// Check if this enemy is still alive
+    /// </summary>
+    public bool IsAlive()
+    {
+        return currentHealth > 0f && gameObject != null;
+    }
+    
+    /// <summary>
+    /// Get the display name for this racer
+    /// </summary>
+    public string GetRacerName()
+    {
+        return racerName;
+    }
+    
+    /// <summary>
+    /// Get the position of the next waypoint this enemy is heading toward
+    /// </summary>
+    public Vector3? GetNextWaypointPosition()
+    {
+        if (waypoints == null || waypoints.Length == 0)
+            return null;
+        
+        // Get next waypoint index (wrap around if at end)
+        int nextIndex = (_currentIndex + 1) % waypoints.Length;
+        
+        if (waypoints[nextIndex] != null)
+        {
+            return waypoints[nextIndex].position;
+        }
+        
+        return null;
     }
 }
