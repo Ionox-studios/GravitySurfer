@@ -70,6 +70,9 @@ public class VehicleController : MonoBehaviour
     [SerializeField] private ParticleSystem jumpParticleSystem; // Particle effect on jump
     [SerializeField] private AudioSource jumpAudioSource; // Sound effect on jump
     
+    [Header("Attack Effects")]
+    [SerializeField] private AudioSource attackAudioSource; // Sound effect on attack
+    
     // Boost system variables
     private bool _isBoostActive = false; // Is boost currently active
     private float _boostTimeRemaining = 0f; // Time remaining on current boost
@@ -345,7 +348,12 @@ public class VehicleController : MonoBehaviour
                 Debug.Log($"Attack hit enemy: {col.gameObject.name} for {attackDamage} damage!");
             }
         }
-                // Trigger animation and slash effect
+        
+        // Play attack sound effect
+        if (attackAudioSource != null)
+            attackAudioSource.Play();
+        
+        // Trigger animation and slash effect
         if (animator != null)
             animator.SetTrigger("isAttack1");
         

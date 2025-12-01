@@ -30,7 +30,7 @@ public class MainMenu : MonoBehaviour
    
    public void BacktoMenu()
    {
-        SceneManager.LoadScene("Menu");
+        SceneManager.LoadScene("0_Menu");
    }
    
 }

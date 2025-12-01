@@ -33,14 +33,22 @@ public class GameController : MonoBehaviour
     [Tooltip("Delay before transitioning to cutscene (seconds)")]
     public float completionDelay = 3f;
     
+    [Header("Leaderboard")]
+    [Tooltip("Player's 3-letter tag for leaderboard")]
+    public string playerTag = "PLR";
+    [Tooltip("Level index for this scene (0 = Level 1, 1 = Level 2, 2 = Level 3)")]
+    public int levelIndex = 0;
+    
     private InputAction _quitAction;
     private InputAction _startAction;
     private InputAction _restartAction;
+    private InputAction _advanceAction;
     
     private float timer = 0f;
     private bool gameStarted = false;
     private bool gameEnded = false;
     private int currentLap = 0;
+    private bool waitingToAdvance = false;
 
     void Awake()
     {
@@ -59,6 +67,7 @@ public class GameController : MonoBehaviour
         _quitAction = uiActionMap.FindAction("Quit");
         _startAction = uiActionMap.FindAction("Start");
         _restartAction = uiActionMap.FindAction("Restart");
+        _advanceAction = uiActionMap.FindAction("Submit");
         
         if (_quitAction != null)
         {
@@ -85,6 +94,15 @@ public class GameController : MonoBehaviour
         else
         {
             Debug.LogWarning("Restart action not found. Add 'Restart' action to 'UI' action map.");
+        }
+
+        if (_advanceAction != null)
+        {
+            _advanceAction.performed += OnAdvance;
+        }
+        else
+        {
+            Debug.LogWarning("Submit action not found. Add 'Submit' action to 'UI' action map.");
         }
 
         uiActionMap.Enable();
@@ -142,6 +160,16 @@ public class GameController : MonoBehaviour
         if (gameEnded || (deathPanel != null && deathPanel.activeSelf))
         {
             RestartGame();
+        }
+    }
+
+    private void OnAdvance(InputAction.CallbackContext context)
+    {
+        // Advance from win screen if waiting
+        if (waitingToAdvance)
+        {
+            StopAllCoroutines();
+            AdvanceToNextScene();
         }
     }
 
@@ -214,6 +242,22 @@ public class GameController : MonoBehaviour
         return totalLaps;
     }
 
+    /// <summary>
+    /// Get the current race timer value
+    /// </summary>
+    public float GetTimer()
+    {
+        return timer;
+    }
+
+    /// <summary>
+    /// Get the level index for this scene
+    /// </summary>
+    public int GetLevelIndex()
+    {
+        return levelIndex;
+    }
+
     void ActivateLapFeatures(int lapNumber)
     {
         if (lapFeatures == null || lapFeatures.Length == 0) return;
@@ -258,17 +302,35 @@ public class GameController : MonoBehaviour
         if (gameEnded) return;
         
         gameEnded = true;
+        waitingToAdvance = true;
         if (winPanel != null) winPanel.SetActive(true);
         
-        Debug.Log("Race Complete!");
+        Debug.Log($"Race Complete! Final time: {timer:F2} seconds");
         
-        // Transition to cutscene after delay
+        // Add time to leaderboard for this specific level
+        if (GameSceneManager.Instance != null)
+        {
+            bool madeLeaderboard = GameSceneManager.Instance.AddLeaderboardEntry(levelIndex, playerTag, timer);
+            if (madeLeaderboard)
+            {
+                Debug.Log($"Player {playerTag} made the leaderboard for Level {levelIndex + 1} with time {timer:F2}!");
+            }
+        }
+        
+        // Transition to cutscene after delay (or wait for player to click)
         StartCoroutine(TransitionToCutscene());
     }
     
     private System.Collections.IEnumerator TransitionToCutscene()
     {
         yield return new WaitForSecondsRealtime(completionDelay);
+        
+        AdvanceToNextScene();
+    }
+
+    private void AdvanceToNextScene()
+    {
+        waitingToAdvance = false;
         
         // Tell GameSceneManager to load the cutscene
         // if (GameSceneManager.Instance != null)
@@ -325,6 +387,10 @@ public class GameController : MonoBehaviour
         if (_restartAction != null)
         {
             _restartAction.performed -= OnRestart;
+        }
+        if (_advanceAction != null)
+        {
+            _advanceAction.performed -= OnAdvance;
         }
     }
 }

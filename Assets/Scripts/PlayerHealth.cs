@@ -13,6 +13,9 @@ public class PlayerHealth : MonoBehaviour
     [Header("UI References")]
     public GameObject deathPanel;
 
+    [Header("Audio")]
+    [SerializeField] private AudioSource damageAudioSource;
+
     public event Action<float, float> OnHealthChanged;
 
     private bool isDead = false;
@@ -46,6 +49,12 @@ public class PlayerHealth : MonoBehaviour
         OnHealthChanged?.Invoke(currentHealth, maxHealth);
 
         Debug.Log($"Player took {damage} damage. Current health: {currentHealth}/{maxHealth}");
+
+        // Play damage sound
+        if (damageAudioSource != null)
+        {
+            damageAudioSource.Play();
+        }
 
         if (animator != null) // AL
             animator.SetTrigger("Stun"); // AL

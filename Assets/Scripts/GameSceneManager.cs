@@ -14,6 +14,9 @@ public class GameSceneManager : MonoBehaviour
     [Tooltip("List of all racing levels in the game")]
     public List<RacingLevel> racingLevels = new List<RacingLevel>();
 
+    [Header("Leaderboard")]
+    private Dictionary<int, LeaderboardManager> leaderboards = new Dictionary<int, LeaderboardManager>();
+
     private int currentLevelIndex = -1;
 
     void Awake()
@@ -23,6 +26,9 @@ public class GameSceneManager : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
+            
+            // Initialize leaderboards dictionary
+            leaderboards = new Dictionary<int, LeaderboardManager>();
         }
         else
         {
@@ -157,6 +163,49 @@ public class GameSceneManager : MonoBehaviour
     public int GetCurrentLevelIndex()
     {
         return currentLevelIndex;
+    }
+
+    /// <summary>
+    /// Add a player's time to the leaderboard
+    /// </summary>
+    public bool AddLeaderboardEntry(string playerTag, float timeInSeconds)
+    {
+        return AddLeaderboardEntry(currentLevelIndex, playerTag, timeInSeconds);
+    }
+
+    /// <summary>
+    /// Add a player's time to a specific level's leaderboard
+    /// </summary>
+    public bool AddLeaderboardEntry(int levelIndex, string playerTag, float timeInSeconds)
+    {
+        // Get or create leaderboard for this level
+        if (!leaderboards.ContainsKey(levelIndex))
+        {
+            leaderboards[levelIndex] = new LeaderboardManager(levelIndex);
+        }
+
+        return leaderboards[levelIndex].TryAddEntry(playerTag, timeInSeconds);
+    }
+
+    /// <summary>
+    /// Get the current leaderboard (for current level)
+    /// </summary>
+    public LeaderboardManager GetLeaderboard()
+    {
+        return GetLeaderboard(currentLevelIndex);
+    }
+
+    /// <summary>
+    /// Get leaderboard for a specific level
+    /// </summary>
+    public LeaderboardManager GetLeaderboard(int levelIndex)
+    {
+        if (!leaderboards.ContainsKey(levelIndex))
+        {
+            leaderboards[levelIndex] = new LeaderboardManager(levelIndex);
+        }
+
+        return leaderboards[levelIndex];
     }
 }
 

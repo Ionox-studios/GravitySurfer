@@ -28,7 +28,9 @@ public class EnemyBehavior : MonoBehaviour, IRacer
     [SerializeField] private Transform player;            // reference to player transform
     [SerializeField] private float captureRadius = 15f;   // distance to trigger capture
     [SerializeField] private float captureDistance = 3f;  // how far to the side of the player
-    [SerializeField] private float captureForwardOffset = 2f; // how far in front of the player to position
+    [SerializeField] private float captureForwardOffset = 2f; // base how far in front of the player to position
+    [SerializeField] private float velocityOffsetMultiplier = 0.15f; // multiplier for velocity-based offset
+    [SerializeField] private float maxVelocityOffset = 10f; // maximum additional offset from velocity
     [SerializeField] private float captureDuration = 5f;  // how long to stay captured
     [SerializeField] private float captureRange = 5f;     // range within which to stay next to player
     [SerializeField] private float captureLerpTime = 2f;  // time in seconds to lerp to capture position
@@ -44,11 +46,13 @@ public class EnemyBehavior : MonoBehaviour, IRacer
     [SerializeField] private float attackDamage = 10f;    // damage dealt to player
     [SerializeField] private float attackPushForce = 10f; // push force applied to player
     [SerializeField] private GameObject attackSphereVisual; // visual sphere object (optional)
+    [SerializeField] private AudioSource attackAudioSource; // sound effect to play when attacking
 
     [Header("Health")]
     [SerializeField] private float maxHealth = 100f;
     [SerializeField] private float currentHealth;
     [SerializeField] private ParticleSystem hitParticleEffect; // Particle effect to play when hit
+    [SerializeField] private AudioSource damageAudioSource; // Sound effect to play when hit
 
     [Header("Respawn")]
     [SerializeField] private float respawnYThreshold = 5f; // If below this Y, respawn
@@ -85,8 +89,9 @@ public class EnemyBehavior : MonoBehaviour, IRacer
     private float _releaseTimer; // tracks time spent in release state
     private bool _isWaitingAfterDamage; // true when waiting after taking damage (no target position)
     private Vector3 _capturePlayerLockPosition; // player's local position when enemy locked on
-    private float _capturePlayerLockLateral; // player's lateral position when locked
+    private Vector3 _capturePlayerLockLateral; // player's lateral position when locked
     private float _captureYOffset; // Y offset to maintain relative height
+    private Rigidbody _playerRb; // cache player's rigidbody for velocity
 
     // Attack behavior
     private float _attackTimer;
@@ -108,6 +113,10 @@ public class EnemyBehavior : MonoBehaviour, IRacer
     private float _startGroundTimer; // Timer for start ground duration
     private const float ROTATION_THRESHOLD = 10f; // Y rotation change threshold in degrees
     private const float START_GROUND_DURATION = 5f; // Duration to hold start ground
+
+    // Node advancement teleport
+    private float _nodeAdvancementTimer; // Time since last waypoint reached
+    private const float NODE_TELEPORT_TIME = 10f; // Teleport to next node after 10 seconds
 
     void Awake()
     {
@@ -156,6 +165,15 @@ public class EnemyBehavior : MonoBehaviour, IRacer
         _previousYRotation = transform.eulerAngles.y;
         _isStartGroundActive = false;
         _startGroundTimer = 0f;
+
+        // Initialize node advancement timer
+        _nodeAdvancementTimer = 0f;
+
+        // Cache player Rigidbody if player is assigned
+        if (player != null)
+        {
+            _playerRb = player.GetComponent<Rigidbody>();
+        }
     }
 
     void FixedUpdate()
@@ -167,6 +185,9 @@ public class EnemyBehavior : MonoBehaviour, IRacer
 
         // Check for rotation changes and trigger start ground
         CheckRotationChange();
+
+        // Update node advancement timer
+        _nodeAdvancementTimer += Time.fixedDeltaTime;
 
         // Track game time
         _gameTimer += Time.fixedDeltaTime;
@@ -208,7 +229,7 @@ public class EnemyBehavior : MonoBehaviour, IRacer
                     
                     // Lock the player's current position
                     _capturePlayerLockPosition = player.position;
-                    _capturePlayerLockLateral = 0f;
+                    _capturePlayerLockLateral = Vector3.zero;
                     
                     Debug.Log($"Enemy capturing player! Side: {(_captureOnRight ? "Right" : "Left")}");
                 }
@@ -329,6 +350,38 @@ public class EnemyBehavior : MonoBehaviour, IRacer
                 Debug.Log($"Enemy completed lap {_currentLap}");
             }
             
+            // Reset node advancement timer when waypoint is reached
+            _nodeAdvancementTimer = 0f;
+            
+            target = waypoints[_currentIndex];
+            toTarget = target.position - transform.position;
+        }
+        // Check if stuck at node for too long - teleport to next node
+        else if (_nodeAdvancementTimer >= NODE_TELEPORT_TIME)
+        {
+            Debug.Log("Enemy stuck at node for 10s, teleporting to next waypoint!");
+            
+            // Teleport to next waypoint position
+            Transform nextWaypoint = waypoints[_currentIndex];
+            transform.position = nextWaypoint.position + Vector3.up * 2f; // Slightly above to avoid clipping
+            
+            // Save this node position before advancing
+            _lastNodePosition = waypoints[_currentIndex].position;
+            
+            // Advance to next node
+            _currentIndex++;
+            
+            // Loop waypoints and increment lap
+            if (_currentIndex >= waypoints.Length)
+            {
+                _currentIndex = 0;
+                _currentLap++;
+                Debug.Log($"Enemy completed lap {_currentLap}");
+            }
+            
+            // Reset timer after teleport
+            _nodeAdvancementTimer = 0f;
+            
             target = waypoints[_currentIndex];
             toTarget = target.position - transform.position;
         }
@@ -441,9 +494,20 @@ public class EnemyBehavior : MonoBehaviour, IRacer
         // Calculate right direction relative to the path
         Vector3 pathRight = Vector3.Cross(transform.up, pathForward).normalized;
         
+        // Calculate dynamic forward offset based on player velocity
+        float dynamicForwardOffset = captureForwardOffset;
+        if (_playerRb != null)
+        {
+            // Get player's forward velocity
+            float playerSpeed = Vector3.Dot(_playerRb.linearVelocity, pathForward);
+            // Add velocity-based offset, clamped to max
+            float velocityOffset = Mathf.Clamp(playerSpeed * velocityOffsetMultiplier, 0f, maxVelocityOffset);
+            dynamicForwardOffset += velocityOffset;
+        }
+        
         // Calculate the exact target position (to the side and slightly in front)
         Vector3 sideDirection = _captureOnRight ? pathRight : -pathRight;
-        Vector3 exactTargetOffset = sideDirection * captureDistance + pathForward * captureForwardOffset;
+        Vector3 exactTargetOffset = sideDirection * captureDistance + pathForward * dynamicForwardOffset;
         
         if (!_hasReachedCapturePosition)
         {
@@ -484,8 +548,8 @@ public class EnemyBehavior : MonoBehaviour, IRacer
                 lateralDistance = clampedDistance;
             }
             
-            // Position enemy at the locked lateral position, but always match path's forward offset
-            _captureOffset = pathRight * lateralDistance + pathForward * captureForwardOffset;
+            // Position enemy at the locked lateral position, but always match path's forward offset (use same dynamic offset)
+            _captureOffset = pathRight * lateralDistance + pathForward * dynamicForwardOffset;
         }
         
         // Set position directly locked to player, maintaining Y offset
@@ -568,6 +632,12 @@ public class EnemyBehavior : MonoBehaviour, IRacer
             _attackProgressTimer = 0f;
             _attackTimer = 0f; // Reset timer to prevent triggering again
             _hasHitPlayerThisAttack = false;
+            
+            // Play attack sound
+            if (attackAudioSource != null)
+            {
+                attackAudioSource.Play();
+            }
             
             // Trigger animations at start of attack
    //         if (animator != null)
@@ -673,7 +743,8 @@ public class EnemyBehavior : MonoBehaviour, IRacer
     /// </summary>
     /// <param name="damage">Amount of damage to take</param>
     /// <param name="pushDirection">Optional direction to push the enemy (will be applied as force)</param>
-    public void TakeDamage(float damage, Vector3? pushDirection = null)
+    /// <param name="playEffects">Whether to play particle and audio effects (default: true)</param>
+    public void TakeDamage(float damage, Vector3? pushDirection = null, bool playEffects = true)
     {
         currentHealth -= damage;
         currentHealth = Mathf.Clamp(currentHealth, 0f, maxHealth);
@@ -681,9 +752,15 @@ public class EnemyBehavior : MonoBehaviour, IRacer
         Debug.Log($"Enemy took {damage} damage. Current health: {currentHealth}/{maxHealth}");
 
         // Play hit particle effect
-        if (hitParticleEffect != null)
+        if (playEffects && hitParticleEffect != null)
         {
             hitParticleEffect.Play();
+        }
+
+        // Play damage sound effect
+        if (playEffects && damageAudioSource != null)
+        {
+            damageAudioSource.Play();
         }
 
         // Apply push force if provided
@@ -824,8 +901,8 @@ public class EnemyBehavior : MonoBehaviour, IRacer
             _rb.angularVelocity = Vector3.zero;
         }
         
-        // Take damage
-        TakeDamage(respawnDamage);
+        // Take damage (no effects for respawn)
+        TakeDamage(respawnDamage, null, false);
         
         // Reset stuck counters
         _stuckCount = 0;

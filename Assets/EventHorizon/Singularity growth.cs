@@ -6,6 +6,7 @@ public class Singularitygrowth : MonoBehaviour
     public float speed = 0.5f;
 
     private Vector3 startScale;
+    private float elapsedTime = 0f;
 
     void Start()
     {
@@ -14,10 +15,11 @@ public class Singularitygrowth : MonoBehaviour
 
     void Update()
     {
+        elapsedTime += Time.deltaTime * speed;
         transform.localScale = Vector3.Lerp(
             startScale,
             targetScale,
-            Time.deltaTime * speed
+            elapsedTime
         );
     }
 }
